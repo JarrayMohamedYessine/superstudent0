@@ -61,6 +61,7 @@ import {
   downloadBothDocumentFiles,
   openBacDocumentNativePdf,
 } from "../services/documentsService";
+import { uploadToZeroCostStorage } from "../services/remoteStorageService";
 import { TopBar, Avatar, Chip, FieldShell, PrimaryButton, Spinner } from "./Atoms";
 
 interface DocumentsScreenProps {
@@ -489,31 +490,41 @@ export function DocumentsScreen({
     setSubmitting(true);
     setFormError("");
 
-    // Forward file to Telegram Proxy Worker & Local Disk Dual Cache
-    let telegramDocResult: any = null;
+    // Zero-Cost Cloud Storage Multi-Origin Upload (Catbox / Litterbox / Telegram CDN)
+    let uploadedPdfUrl: string | undefined = undefined;
     if (newPdfFile?.dataUrl) {
       try {
-        const tgRes = await fetch("/api/telegram/upload", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            dataUrl: newPdfFile.dataUrl,
-            fileName: newPdfFile.name || newTitle.trim(),
-            publisherName: user.displayName || user.username,
-            publisherId: user.username,
-          }),
+        const uploadResult = await uploadToZeroCostStorage({
+          dataUrl: newPdfFile.dataUrl,
+          name: newPdfFile.name || newTitle.trim(),
         });
-        if (tgRes.ok) {
-          telegramDocResult = await tgRes.json();
+        if (uploadResult.success && uploadResult.publicUrl) {
+          uploadedPdfUrl = uploadResult.publicUrl;
         }
       } catch (err) {
-        console.warn("Telegram storage notice:", err);
+        console.warn("[DocumentsScreen] Remote storage upload notice:", err);
       }
     }
 
     const isSummaryOrCourse = newType === "resume" || newType === "cours" || newType === "correction";
     const finalHasCorrige = isSummaryOrCourse ? false : (newHasCorrige && !!newCorrigePdfFile);
-    const finalCorrigePdfDataUrl = (!isSummaryOrCourse && newHasCorrige) ? newCorrigePdfFile?.dataUrl : undefined;
+    let finalCorrigeUrl: string | undefined = undefined;
+
+    if (!isSummaryOrCourse && newHasCorrige && newCorrigePdfFile?.dataUrl) {
+      try {
+        const corrUpload = await uploadToZeroCostStorage({
+          dataUrl: newCorrigePdfFile.dataUrl,
+          name: newCorrigePdfFile.name || `${newTitle.trim()}_corrige.pdf`,
+        });
+        if (corrUpload.success && corrUpload.publicUrl) {
+          finalCorrigeUrl = corrUpload.publicUrl;
+        }
+      } catch (err) {
+        console.warn("[DocumentsScreen] Corrige upload notice:", err);
+      }
+    }
+
+    const finalCorrigePdfDataUrl = (!isSummaryOrCourse && newHasCorrige) ? (finalCorrigeUrl || newCorrigePdfFile?.dataUrl) : undefined;
     const finalCorrigeFileName = (!isSummaryOrCourse && newHasCorrige) ? newCorrigePdfFile?.name : undefined;
     const finalCorrigeFileSize = (!isSummaryOrCourse && newHasCorrige) ? newCorrigePdfFile?.size : undefined;
 
@@ -526,9 +537,10 @@ export function DocumentsScreen({
         trimestre: newTrimestre,
         hasCorrige: finalHasCorrige,
         fileSize: newPdfFile?.size || "75 KB",
-        pdfUrl: telegramDocResult?.proxy_url || undefined,
-        pdfDataUrl: newPdfFile?.dataUrl,
+        pdfUrl: uploadedPdfUrl || newPdfFile?.dataUrl,
+        pdfDataUrl: uploadedPdfUrl || newPdfFile?.dataUrl,
         examFileName: newPdfFile?.name,
+        corrigePdfUrl: finalCorrigeUrl,
         corrigePdfDataUrl: finalCorrigePdfDataUrl,
         corrigeFileName: finalCorrigeFileName,
         corrigeFileSize: finalCorrigeFileSize,

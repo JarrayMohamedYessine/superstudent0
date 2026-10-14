@@ -3,6 +3,7 @@ import { INITIAL_BAC_DOCUMENTS } from "../data/bacDocumentsDataset";
 import { getJSON, setJSON, delKey } from "./dataService";
 import { canUserPublishDocuments } from "../constants";
 import { createNotification } from "./notificationService";
+import { fetchWithSWR, cacheFileInBrowser } from "./clientCacheService";
 
 const VAULT_KEY = "bac-documents-vault";
 const DELETED_DOCS_KEY = "bac-deleted-doc-ids";
@@ -20,11 +21,18 @@ export async function getDeletedDocIds(): Promise<string[]> {
 export async function getAllBacDocuments(): Promise<BacDocumentItem[]> {
   try {
     const deletedIds = new Set(await getDeletedDocIds());
+    
+    // 1. Fetch shared documents from Edge CDN / Worker repository (Tier 1 & Tier 2 cache)
+    const remoteSharedDocs = await fetchWithSWR<BacDocumentItem[]>("/api/documents", []);
+    
+    // 2. Fetch local custom documents (IndexedDB / localStorage cache)
     const customDocs = (await getJSON<BacDocumentItem[]>(VAULT_KEY, true)) || [];
-    // Merge initial dataset with user-created documents, avoiding duplicate IDs and excluding deleted
-    const customIds = new Set(customDocs.map((d: BacDocumentItem) => d.id));
+    
+    // 3. Merge: remote shared + local custom + initial dataset, deduplicating by ID and excluding deleted
+    const allCustom = [...(remoteSharedDocs || []), ...customDocs];
+    const customIds = new Set(allCustom.map((d: BacDocumentItem) => d.id));
     const merged = [
-      ...customDocs.filter((d: BacDocumentItem) => !deletedIds.has(d.id)),
+      ...allCustom.filter((d: BacDocumentItem) => !deletedIds.has(d.id)),
       ...INITIAL_BAC_DOCUMENTS.filter((d: BacDocumentItem) => !customIds.has(d.id) && !deletedIds.has(d.id)),
     ];
     
@@ -81,6 +89,25 @@ export async function publishBacDocument(
 
     customDocs.unshift(newDoc);
     await setJSON(VAULT_KEY, customDocs, true);
+
+    // 1. Broadcast to Edge Repository so all students globally see the document
+    try {
+      fetch("/api/documents", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newDoc),
+      }).catch(() => {});
+    } catch {
+      // non-blocking
+    }
+
+    // 2. Cache PDF in W3C Cache Storage API for instant offline zero-latency access
+    if (newDoc.pdfDataUrl) {
+      cacheFileInBrowser(newDoc.pdfUrl || newDoc.id, newDoc.pdfDataUrl).catch(() => {});
+    }
+    if (newDoc.corrigePdfDataUrl) {
+      cacheFileInBrowser(newDoc.corrigePdfUrl || `${newDoc.id}-corrige`, newDoc.corrigePdfDataUrl).catch(() => {});
+    }
 
     // Track PDF in applicant dev storage file if contributor is an applicant
     try {
