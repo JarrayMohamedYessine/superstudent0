@@ -1,0 +1,20 @@
+{
+  "person_01J9Q39BGS57NVRCF7A2D0M4WP": {
+    "name": "الأستاذ مراد بن صالح",
+    "role": "متفقد عام لمادة الرياضيات",
+    "avatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
+    "verified": true
+  },
+  "person_01J9Q42CD8E93B01A9C83K9D12": {
+    "name": "الأستاذة سارة التونسي",
+    "role": "أستاذة رئيسية في العلوم الفيزيائية",
+    "avatar": "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&auto=format&fit=crop&q=80",
+    "verified": true
+  },
+  "person_01J9Q45A17F20D4581C74L1E88": {
+    "name": "إدارة أرشيف البكالوريا الوطنية",
+    "role": "المشرف الأكاديمي",
+    "avatar": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80",
+    "verified": true
+  }
+}

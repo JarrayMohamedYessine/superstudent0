@@ -1,0 +1,44 @@
+{
+  "doc_01J9Q36P2Z7VN4T8KC6YF5M3AE": {
+    "mirrors": [{ "p": "catbox", "u": "https://files.catbox.moe/8y8k12.pdf", "v": true }],
+    "telegram": { "ch": "-1001928472910", "m": 4812, "fid": "BAACAgQAAxkBAAEJ8" },
+    "hash": "a1b2c3d4e5f67890123456789abcdef0123456789abcdef0123456789abcdef0",
+    "size": 1845230
+  },
+  "doc_01J9Q37N4W8AK92J3M1T7P4B90": {
+    "mirrors": [{ "p": "catbox", "u": "https://files.catbox.moe/9x7m34.pdf", "v": true }],
+    "telegram": { "ch": "-1001928472910", "m": 4813, "fid": "BAACAgQAAxkBAAEJ9" },
+    "hash": "b2c3d4e5f67890123456789abcdef0123456789abcdef0123456789abcdef01a",
+    "size": 2410880
+  },
+  "doc_01J9Q38R5Q2BM81N4V7K6C3D82": {
+    "mirrors": [{ "p": "catbox", "u": "https://files.catbox.moe/7p4w91.pdf", "v": true }],
+    "telegram": { "ch": "-1001928472910", "m": 4814, "fid": "BAACAgQAAxkBAAEK0" },
+    "hash": "c3d4e5f67890123456789abcdef0123456789abcdef0123456789abcdef01a2b",
+    "size": 3154900
+  },
+  "doc_01J9Q39M1X3CN72P5R8T4W9E14": {
+    "mirrors": [{ "p": "catbox", "u": "https://files.catbox.moe/5v2k83.pdf", "v": true }],
+    "telegram": { "ch": "-1001928472910", "m": 4815, "fid": "BAACAgQAAxkBAAEK1" },
+    "hash": "d4e5f67890123456789abcdef0123456789abcdef0123456789abcdef01a2b3c",
+    "size": 1980320
+  },
+  "doc_01J9Q40B2Y4DP83Q6S9U5X0F25": {
+    "mirrors": [{ "p": "catbox", "u": "https://files.catbox.moe/3m9q18.pdf", "v": true }],
+    "telegram": { "ch": "-1001928472910", "m": 4816, "fid": "BAACAgQAAxkBAAEK2" },
+    "hash": "e5f67890123456789abcdef0123456789abcdef0123456789abcdef01a2b3c4d",
+    "size": 2104500
+  },
+  "doc_01J9Q41C3Z5EQ94R7T0V6Y1G36": {
+    "mirrors": [{ "p": "catbox", "u": "https://files.catbox.moe/2k8r57.pdf", "v": true }],
+    "telegram": { "ch": "-1001928472910", "m": 4817, "fid": "BAACAgQAAxkBAAEK3" },
+    "hash": "f67890123456789abcdef0123456789abcdef0123456789abcdef01a2b3c4d5e",
+    "size": 1640200
+  },
+  "doc_01J9Q42D4A6FR05S8U1W7Z2H47": {
+    "mirrors": [{ "p": "catbox", "u": "https://files.catbox.moe/1n4w92.pdf", "v": true }],
+    "telegram": { "ch": "-1001928472910", "m": 4818, "fid": "BAACAgQAAxkBAAEK4" },
+    "hash": "07890123456789abcdef0123456789abcdef0123456789abcdef01a2b3c4d5ef",
+    "size": 1420800
+  }
+}

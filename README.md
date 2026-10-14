@@ -1,11 +1,34 @@
-<div align="center">
+# SuperStudent Archive Platform
 
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+## Prerequisites
+- **Node.js**: `>= 22.18.0` (declared in `.nvmrc` and `package.json`)
+- **Package Manager**: `pnpm` (configured via `pnpm-workspace.yaml` and `pnpm-lock.yaml`)
 
-  <h1>Built with AI Studio</h2>
+## Quick Setup
+```bash
+# Enable pnpm via Corepack
+corepack enable
+corepack prepare pnpm@latest --activate
 
-  <p>The fastest path from prompt to production with Gemini.</p>
+# Install dependencies with frozen lockfile
+pnpm install --frozen-lockfile
 
-  <a href="https://aistudio.google.com/apps">Start building</a>
+# Build monorepo & worker frontend
+pnpm run build:worker
+```
 
-</div>
+## Cloudflare Deployment Settings
+- **Root Directory**: `/`
+- **Node Version**: `22.18.0` (`NODE_VERSION = 22.18.0`)
+- **Install Command**:
+  ```bash
+  corepack enable && corepack prepare pnpm@latest --activate && pnpm install --frozen-lockfile
+  ```
+- **Build Command**:
+  ```bash
+  pnpm run build:worker
+  ```
+- **Output Directory**:
+  ```text
+  artifacts/superstudent/dist/public
+  ```

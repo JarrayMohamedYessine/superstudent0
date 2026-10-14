@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Superstudent"
+description = "منصة تعليمية للطلبة التونسيين للمراجعة والوثائق والتواصل مع مجتمع ديسكورد."
+version = "1.0.0"
+id = "artifacts/superstudent"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 23792
+
+[services.development]
+run = "pnpm --filter @workspace/superstudent run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/superstudent", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/superstudent/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "23792"
+BASE_PATH = "/"

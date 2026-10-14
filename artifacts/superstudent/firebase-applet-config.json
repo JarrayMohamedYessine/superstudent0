@@ -1,0 +1,9 @@
+{
+  "apiKey": "AIzaSyD-dummy-key-for-local-config",
+  "authDomain": "ai-studio-superstudent-4e5654bb-d541-4dc8-9971-2602a1c26cc3.firebaseapp.com",
+  "projectId": "ai-studio-superstudent-4e5654bb-d541-4dc8-9971-2602a1c26cc3",
+  "storageBucket": "ai-studio-superstudent-4e5654bb-d541-4dc8-9971-2602a1c26cc3.appspot.com",
+  "messagingSenderId": "511410638075",
+  "appId": "1:511410638075:web:4e5654bb-d541-4dc8-9971-2602a1c26cc3",
+  "firestoreDatabaseId": "ai-studio-superstudent-4e5654bb-d541-4dc8-9971-2602a1c26cc3"
+}

@@ -1,0 +1,328 @@
+@import "tailwindcss";
+@source "./";
+
+
+/* ━━━━━━━━━━━━━━━━━━━━ RESPONSIVE VIEWPORT & DEVICE ADAPTATION ━━━━━━━━━━━━━━━━━━━━ */
+:root {
+  --sat: env(safe-area-inset-top, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+}
+
+html, body, #root {
+  min-height: 100%;
+  min-height: 100dvh;
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+  scroll-behavior: smooth;
+}
+
+/* Eliminate tap delays on mobile touchscreens (Android Chrome & iOS Safari) */
+button, a, input, textarea, select, [role="button"] {
+  touch-action: manipulation;
+}
+
+/* Prevent unwanted automatic zoom-in on iPhone/iOS Safari when tapping inputs */
+@media screen and (max-width: 768px) {
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="search"],
+  input[type="number"],
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
+
+/* Media responsiveness: images and media should never overflow their containers */
+img, svg, video, canvas {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Safe area inset helper classes */
+.safe-area-bottom {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px));
+}
+
+.safe-area-top {
+  padding-top: max(0.5rem, env(safe-area-inset-top, 0px));
+}
+
+/* Custom modern scrollbars */
+.bac-scroll::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.bac-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.bac-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 9999px;
+}
+.bac-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━ MODERN BUTTONS & GRAPHIC SYSTEMS ━━━━━━━━━━━━━━━━━━━━ */
+.modern-btn-base {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  user-select: none;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.modern-btn-base:hover {
+  transform: translateY(-1.5px);
+}
+
+.modern-btn-base:active {
+  transform: scale(0.97);
+}
+
+.modern-btn-base:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* Glass & Glow Shimmer Effects */
+.btn-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-shimmer::after {
+  content: "";
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(
+    60deg,
+    transparent 20%,
+    rgba(255, 255, 255, 0.15) 25%,
+    transparent 30%
+  );
+  transform: rotate(30deg);
+  pointer-events: none;
+  animation: shimmerPass 4.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes shimmerPass {
+  0% {
+    transform: translateX(-150%) rotate(30deg);
+  }
+  20%, 100% {
+    transform: translateX(150%) rotate(30deg);
+  }
+}
+
+/* Button Graphic Containers (Dual-tone icon enclosures) */
+.btn-graphic-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.75rem;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  flex-shrink: 0;
+}
+
+.modern-btn-base:hover .btn-graphic-box {
+  transform: scale(1.08) rotate(3deg);
+}
+
+/* Floating Dock Navigation Pill */
+.nav-dock-tab {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  padding: 0.4rem 0.75rem;
+  border-radius: 1rem;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+}
+
+.nav-dock-tab:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.nav-dock-tab.active {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(168, 85, 247, 0.1));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 4px 16px -2px rgba(99, 102, 241, 0.25);
+}
+
+.nav-dock-tab.active::after {
+  content: "";
+  position: absolute;
+  bottom: 2px;
+  width: 16px;
+  height: 2.5px;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, #818CF8, #C084FC);
+  box-shadow: 0 0 8px #818CF8;
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━ KATEX & MATHEMATICAL FORMULA PRESERVATION ━━━━━━━━━━━━━━━━━━━━ */
+/* Strict direction isolation so Arabic RTL NEVER mirrors mathematical equations */
+.katex,
+.katex-display,
+.katex-html {
+  direction: ltr !important;
+  text-align: left !important;
+  unicode-bidi: isolate !important;
+}
+
+/* Display equations centering & horizontal overflow protection */
+.katex-display {
+  display: block;
+  margin: 1rem 0 !important;
+  padding: 0.75rem 1rem !important;
+  overflow-x: auto !important;
+  overflow-y: hidden;
+  max-width: 100%;
+  border-radius: 0.85rem;
+  background: rgba(99, 102, 241, 0.05);
+  border: 1px solid rgba(99, 102, 241, 0.15);
+}
+
+.katex-display::-webkit-scrollbar {
+  height: 4px;
+}
+.katex-display::-webkit-scrollbar-thumb {
+  background: rgba(99, 102, 241, 0.3);
+  border-radius: 4px;
+}
+
+/* Inline math slight padding for clean readability */
+.katex {
+  font-size: 1.05em !important;
+  padding: 0 0.15em;
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━ EDUCATIONAL MARKDOWN ENHANCEMENTS ━━━━━━━━━━━━━━━━━━━━ */
+.educational-markdown {
+  word-break: break-word;
+  line-height: 1.75;
+}
+
+.educational-markdown p {
+  margin-bottom: 0.85rem;
+}
+
+.educational-markdown p:last-child {
+  margin-bottom: 0;
+}
+
+.educational-markdown h1,
+.educational-markdown h2,
+.educational-markdown h3,
+.educational-markdown h4 {
+  font-weight: 700;
+  margin-top: 1.4rem;
+  margin-bottom: 0.6rem;
+  color: inherit;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.educational-markdown h1 {
+  font-size: 1.35rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding-bottom: 0.35rem;
+}
+
+.educational-markdown h2 {
+  font-size: 1.2rem;
+  color: #818cf8;
+}
+
+.educational-markdown h3 {
+  font-size: 1.05rem;
+  color: #a5b4fc;
+}
+
+.educational-markdown ul,
+.educational-markdown ol {
+  margin: 0.75rem 0;
+  padding-inline-start: 1.5rem;
+}
+
+.educational-markdown ul {
+  list-style-type: disc;
+}
+
+.educational-markdown ol {
+  list-style-type: decimal;
+}
+
+.educational-markdown li {
+  margin-bottom: 0.4rem;
+}
+
+.educational-markdown blockquote {
+  border-inline-start: 3px solid #6366f1;
+  padding-inline-start: 1rem;
+  margin: 1rem 0;
+  font-style: italic;
+  opacity: 0.9;
+  background: rgba(99, 102, 241, 0.04);
+  padding: 0.6rem 1rem;
+  border-radius: 0 0.5rem 0.5rem 0;
+}
+
+.educational-markdown table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1rem 0;
+  font-size: 0.9em;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.educational-markdown th,
+.educational-markdown td {
+  padding: 0.6rem 0.85rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  text-align: start;
+}
+
+.educational-markdown th {
+  background: rgba(99, 102, 241, 0.15);
+  font-weight: 700;
+}
+
+.educational-markdown tr:nth-child(even) {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+@media print {
+  @page {
+    size: A6 portrait;
+    margin: 6mm;
+  }
+  body {
+    background: white !important;
+    color: black !important;
+  }
+}
+
