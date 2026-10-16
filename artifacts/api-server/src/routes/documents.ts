@@ -1,27 +1,101 @@
-import { Router, type IRouter, type Request, type Response } from "express";
+import express, { type IRouter, type Request, type Response } from "express";
+import { DiskLRUCache, CatboxProvider, TelegramProvider, computeSha256, MetaStore } from "../lib/storage";
+import multer from "multer";
 
-const router: IRouter = Router();
+const router: IRouter = express.Router();
+const upload = multer();
 
-/**
- * Direct PDF streaming/serving endpoint
- * Ensures Content-Type: application/pdf and Content-Disposition: inline
- * for native browser viewing in new tabs.
- */
-router.get("/documents/:id/pdf", (req: Request, res: Response) => {
+const CACHE = new DiskLRUCache();
+const METASTORE = new MetaStore();
+const CATBOX = new CatboxProvider();
+const TG = new TelegramProvider();
+
+// init once (best-effort)
+(async () => {
+  try {
+    await CACHE.init();
+    await METASTORE.init();
+  } catch (e) {
+    // ignore; will attempt on-demand
+    console.error("Storage init error", e);
+  }
+})();
+
+// Upload endpoint
+router.post("/documents/upload", upload.single("file"), async (req: Request, res: Response) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: "file is required" });
+    const file = req.file;
+    const filename = file.originalname || "upload.pdf";
+    if (!filename.toLowerCase().endsWith(".pdf")) return res.status(400).json({ error: "only pdf allowed" });
+    const buffer = file.buffer as Buffer;
+    const sha = computeSha256(buffer);
+    const existing = METASTORE.getBySha(sha);
+    if (existing) {
+      return res.json({ id: existing.sha256, url: existing.externalUrl, cached: true });
+    }
+    // upload to catbox primarily
+    const uploaded = await CATBOX.uploadFile(filename, buffer);
+    const rec = {
+      id: uploaded.url,
+      sha256: sha,
+      provider: "catbox",
+      providerId: uploaded.url,
+      externalUrl: uploaded.url,
+      mime: "application/pdf",
+      createdAt: Date.now(),
+      ttl: 86400,
+    };
+    await METASTORE.upsert(rec as any);
+    await CACHE.set(sha, buffer);
+    return res.json({ id: sha, url: uploaded.url, cached: false });
+  } catch (e: any) {
+    console.error(e);
+    return res.status(500).json({ error: String(e?.message || e) });
+  }
+});
+
+// Serve PDF by sha
+router.get("/documents/:id/pdf", async (req: Request, res: Response) => {
   const { id } = req.params;
-  const isCorrige = req.query.type === "corrige";
-
-  // Set standard native PDF headers conforming to Cloudflare Edge Cache specifications
-  res.setHeader("Content-Type", "application/pdf");
-  res.setHeader("Content-Disposition", `inline; filename="${id}${isCorrige ? "_corrige" : ""}.pdf"`);
-  res.setHeader("Accept-Ranges", "bytes");
-  res.setHeader("Cache-Control", "public, max-age=3600, s-maxage=604800, stale-while-revalidate=60, stale-if-error=86400");
-  res.setHeader("Cache-Tag", `doc-pdf, doc-${id}`);
-
-  // Minimal valid PDF binary template response if no specific file stored on server
-  const minimalPdfHeader = "%PDF-1.4\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>\nendobj\n4 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>\nendobj\n5 0 obj\n<< /Length 72 >>\nstream\nBT\n/F1 14 Tf\n50 780 Td\n(SuperStudent.TN - Document Officiel) Tj\nET\nendstream\nendobj\nxref\n0 6\n0000000000 65535 f \n0000000009 00000 n \n0000000058 00000 n \n0000000115 00000 n \n0000000244 00000 n \n0000000325 00000 n \ntrailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n447\n%%EOF\n";
-
-  res.send(Buffer.from(minimalPdfHeader, "binary"));
+  try {
+    // check cache
+    const cached = await CACHE.get(id);
+    if (cached) {
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `inline; filename=\"${id}.pdf\"`);
+      res.setHeader("Accept-Ranges", "bytes");
+      res.setHeader("Cache-Control", "public, max-age=3600, s-maxage=604800, stale-while-revalidate=60, stale-if-error=86400");
+      return res.send(cached);
+    }
+    // lookup meta
+    const rec = METASTORE.getBySha(id);
+    if (!rec) {
+      // fallback: if id looks like URL, try fetch
+      if (id.startsWith("http://") || id.startsWith("https://") || id.startsWith("tg://")) {
+        // attempt to fetch via providers
+      } else {
+        return res.status(404).send("Not found");
+      }
+    }
+    let content: Buffer | null = null;
+    if (rec?.provider === "catbox") {
+      content = await CATBOX.downloadFile(rec.externalUrl);
+    } else if (rec?.provider === "telegram") {
+      content = await TG.downloadFile(rec.providerId);
+    }
+    if (!content) return res.status(404).send("Not found");
+    // cache and return
+    await CACHE.set(id, content);
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `inline; filename=\"${id}.pdf\"`);
+    res.setHeader("Accept-Ranges", "bytes");
+    res.setHeader("Cache-Control", "public, max-age=3600, s-maxage=604800, stale-while-revalidate=60, stale-if-error=86400");
+    return res.send(content);
+  } catch (e: any) {
+    console.error(e);
+    return res.status(500).send(String(e?.message || e));
+  }
 });
 
 export default router;
