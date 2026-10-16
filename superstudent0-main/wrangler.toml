@@ -1,0 +1,13 @@
+name = "archive-platform"
+main = "artifacts/superstudent/src/worker.ts"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+SECRETS_FILE_ID = "PASTE_TELEGRAM_FILE_ID"
+BACKUP_FILE_ID = "PASTE_TELEGRAM_FILE_ID"
+
+[assets]
+directory = "./artifacts/superstudent/dist/public"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
