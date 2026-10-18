@@ -4,6 +4,7 @@ import { getJSON, setJSON, delKey } from "./dataService";
 import { canUserPublishDocuments } from "../constants";
 import { createNotification } from "./notificationService";
 import { fetchWithSWR, cacheFileInBrowser } from "./clientCacheService";
+import { loadStoreCollection } from "./cloudStore";
 
 const VAULT_KEY = "bac-documents-vault";
 const DELETED_DOCS_KEY = "bac-deleted-doc-ids";
@@ -23,7 +24,10 @@ export async function getAllBacDocuments(): Promise<BacDocumentItem[]> {
     const deletedIds = new Set(await getDeletedDocIds());
     
     // 1. Fetch shared documents from Edge CDN / Worker repository (Tier 1 & Tier 2 cache)
-    const remoteSharedDocs = await fetchWithSWR<BacDocumentItem[]>("/api/documents", []);
+    // Static store first (free, no Worker call); the old /api/documents call stays as fallback.
+    const storeDocs = await loadStoreCollection<BacDocumentItem>("archive-bank");
+    const remoteSharedDocs =
+      storeDocs !== null ? storeDocs : await fetchWithSWR<BacDocumentItem[]>("/api/documents", []);
     
     // 2. Fetch local custom documents (IndexedDB / localStorage cache)
     const customDocs = (await getJSON<BacDocumentItem[]>(VAULT_KEY, true)) || [];

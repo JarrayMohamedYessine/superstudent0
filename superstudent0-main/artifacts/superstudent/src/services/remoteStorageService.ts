@@ -74,11 +74,12 @@ export async function uploadToZeroCostStorage(
   // 1. Try Cloudflare Worker Storage Proxy (/api/storage/upload)
   try {
     const formData = new FormData();
-    formData.append("file", blob, fileName);
-    formData.append("fileName", fileName);
-    formData.append("sha256", sha256);
+    // Field names are the ones Catbox expects: the Worker streams this body through untouched.
+    formData.append("reqtype", "fileupload");
+    formData.append("fileToUpload", blob, fileName);
+    const folder = blob.type === "application/pdf" || fileName.toLowerCase().endsWith(".pdf") ? "pdfs" : "images";
 
-    const workerRes = await fetch("/api/storage/upload", {
+    const workerRes = await fetch(`/api/storage/upload?folder=${folder}`, {
       method: "POST",
       body: formData,
     });
@@ -108,10 +109,9 @@ export async function uploadToZeroCostStorage(
   try {
     const formData = new FormData();
     formData.append("reqtype", "fileupload");
-    formData.append("time", "72h"); // Extended rolling retention or mirror
     formData.append("fileToUpload", blob, fileName);
 
-    const litterboxRes = await fetch("https://litterbox.catbox.moe/resources/internals/api.php", {
+    const litterboxRes = await fetch("https://catbox.moe/user/api.php", {
       method: "POST",
       body: formData,
     });
@@ -124,14 +124,14 @@ export async function uploadToZeroCostStorage(
         return {
           success: true,
           publicUrl: urlText,
-          provider: "litterbox",
+          provider: "catbox",
           fileSize: `${(blob.size / 1024).toFixed(0)} KB`,
           sha256,
         };
       }
     }
   } catch (e) {
-    console.warn("[StorageService] Direct Catbox/Litterbox upload error:", e);
+    console.warn("[StorageService] Direct Catbox upload error:", e);
   }
 
   onProgress?.(75);

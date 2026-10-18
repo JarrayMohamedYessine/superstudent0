@@ -17,6 +17,18 @@ import {
   getLocalUserProfile,
   saveUserProfileToLocalCache,
 } from "../data/userProfilesCache";
+import {
+  deleteAccountRemote,
+  deleteRequestRemote,
+  deleteStoreItem,
+  mergeById,
+  pullRequests,
+  pushRequest,
+  pushStoreItem,
+  syncAdminUser,
+  updateRequestRemote,
+} from "./cloudRequests";
+import { loadStoreCollection } from "./cloudStore";
 
 // ━━━━━━━━━━━━━━━━━━━━ RELATIONAL ACCOUNTS & PROFILES ━━━━━━━━━━━━━━━━━━━━
 
@@ -153,6 +165,7 @@ export async function promoteToModeratorRPC(targetEmail: string, roomIds: string
   if (acc) {
     const updated: Account = { ...acc, role: "moderator", moderatorRooms: roomIds };
     await setJSON("account:" + normEmail(targetEmail), updated, true);
+    void syncAdminUser(targetEmail, { role: "moderator", moderatorRooms: roomIds });
     return { success: true };
   }
   return { success: false, error: "Account not found" };
@@ -163,6 +176,7 @@ export async function demoteModeratorRPC(targetEmail: string): Promise<{ success
   if (acc) {
     const updated: Account = { ...acc, role: "member", moderatorRooms: [] };
     await setJSON("account:" + normEmail(targetEmail), updated, true);
+    void syncAdminUser(targetEmail, { role: "member", moderatorRooms: [] });
     return { success: true };
   }
   return { success: false, error: "Account not found" };
@@ -173,6 +187,7 @@ export async function promoteToSuperAdminRPC(targetEmail: string): Promise<{ suc
   if (acc) {
     const updated: Account = { ...acc, role: "superadmin" };
     await setJSON("account:" + normEmail(targetEmail), updated, true);
+    void syncAdminUser(targetEmail, { role: "superadmin" });
     return { success: true };
   }
   return { success: false, error: "Account not found" };
@@ -183,6 +198,7 @@ export async function demoteSuperAdminRPC(targetEmail: string): Promise<{ succes
   if (acc) {
     const updated: Account = { ...acc, role: "member" };
     await setJSON("account:" + normEmail(targetEmail), updated, true);
+    void syncAdminUser(targetEmail, { role: "member" });
     return { success: true };
   }
   return { success: false, error: "Account not found" };
@@ -197,6 +213,7 @@ export async function banUserRPC(targetEmail: string, durationMs: number | null)
       bannedUntil: durationMs === null ? null : Date.now() + durationMs,
     };
     await setJSON("account:" + normEmail(targetEmail), updated, true);
+    void syncAdminUser(targetEmail, { banned: durationMs === null, bannedUntil: durationMs === null ? null : updated.bannedUntil });
 
     // Automatic purge of user's attached documents upon ban
     try {
@@ -230,6 +247,7 @@ export async function unbanUserRPC(targetEmail: string): Promise<{ success: bool
   if (acc) {
     const updated: Account = { ...acc, banned: false, bannedUntil: null };
     await setJSON("account:" + normEmail(targetEmail), updated, true);
+    void syncAdminUser(targetEmail, { banned: false, bannedUntil: null });
 
     // Sync unban with server in-memory blacklist
     try {
@@ -254,6 +272,7 @@ export async function setEliteStudentRPC(targetEmail: string, isElite: boolean):
   if (acc) {
     const updated: Account = { ...acc, role: isElite ? "elite_student" : "member" };
     await setJSON("account:" + normEmail(targetEmail), updated, true);
+    void syncAdminUser(targetEmail, { role: updated.role });
     return { success: true };
   }
   return { success: false, error: "Account not found" };
@@ -264,6 +283,7 @@ export async function setUserCanUploadRPC(targetEmail: string, allowed: boolean)
   if (acc) {
     const updated: Account = { ...acc, canUpload: allowed };
     await setJSON("account:" + normEmail(targetEmail), updated, true);
+    void syncAdminUser(targetEmail, { canUpload: allowed });
     return { success: true };
   }
   return { success: false, error: "Account not found" };
@@ -277,6 +297,7 @@ export async function resolveEliteApplicationRPC(appId: string, newStatus: "appr
 export async function deleteUserAccountRPC(targetEmail: string): Promise<{ success: boolean; error?: string }> {
   const norm = normEmail(targetEmail);
   const acc = await getAccountByEmail(norm);
+  void deleteAccountRemote(norm);
 
   const keysToDelete: string[] = ["account:" + norm];
 
@@ -346,11 +367,21 @@ export async function uploadFileToCloudStorage(
 
   // Try worker persistent endpoint
   try {
-    const res = await fetch("/api/storage/upload", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ dataUrl, fileName, folder }),
-    });
+    let res: Response;
+    if (dataUrl.length > 2_000_000) {
+      // Large file: send it as multipart (the Worker streams it straight to Catbox).
+      const blob = await (await fetch(dataUrl)).blob();
+      const fd = new FormData();
+      fd.append("reqtype", "fileupload");
+      fd.append("fileToUpload", blob, fileName);
+      res = await fetch(`/api/storage/upload?folder=${folder}`, { method: "POST", body: fd });
+    } else {
+      res = await fetch("/api/storage/upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dataUrl, fileName, folder }),
+      });
+    }
     if (res.ok) {
       const data = await res.json();
       if (data.success && data.url) {
@@ -853,6 +884,7 @@ export async function submitStudentFeedback(fb: StudentFeedbackItem): Promise<bo
     const existing = (await getJSON<StudentFeedbackItem[]>(STUDENT_FEEDBACKS_KEY, true)) || [];
     const updated = [fb, ...existing.filter((item) => item.id !== fb.id)].slice(0, 500);
     await setJSON(STUDENT_FEEDBACKS_KEY, updated, true);
+    void pushRequest("feedback", fb);
     return true;
   } catch (err) {
     console.error("Failed to save student feedback:", err);
@@ -862,7 +894,8 @@ export async function submitStudentFeedback(fb: StudentFeedbackItem): Promise<bo
 
 export async function getStudentFeedbacks(): Promise<StudentFeedbackItem[]> {
   try {
-    return (await getJSON<StudentFeedbackItem[]>(STUDENT_FEEDBACKS_KEY, true)) || [];
+    const local = (await getJSON<StudentFeedbackItem[]>(STUDENT_FEEDBACKS_KEY, true)) || [];
+    return mergeById(local, await pullRequests<StudentFeedbackItem>("feedback"));
   } catch {
     return [];
   }
@@ -873,6 +906,7 @@ export async function deleteStudentFeedback(id: string): Promise<boolean> {
     const existing = (await getJSON<StudentFeedbackItem[]>(STUDENT_FEEDBACKS_KEY, true)) || [];
     const updated = existing.filter((f) => f.id !== id);
     await setJSON(STUDENT_FEEDBACKS_KEY, updated, true);
+    void deleteRequestRemote("feedback", id);
     return true;
   } catch {
     return false;
@@ -884,6 +918,7 @@ export async function toggleResolveStudentFeedback(id: string, resolved?: boolea
     const existing = (await getJSON<StudentFeedbackItem[]>(STUDENT_FEEDBACKS_KEY, true)) || [];
     const updated = existing.map((f) => (f.id === id ? { ...f, resolved: resolved !== undefined ? resolved : !f.resolved } : f));
     await setJSON(STUDENT_FEEDBACKS_KEY, updated, true);
+    void updateRequestRemote("feedback", id, { resolved: updated.find((f) => f.id === id)?.resolved === true });
     return true;
   } catch {
     return false;
@@ -940,6 +975,7 @@ export async function submitEliteApplication(app: EliteApplicationItem): Promise
     const existing = (await getJSON<EliteApplicationItem[]>(ELITE_APPLICATIONS_KEY, true)) || [];
     const updated = [app, ...existing.filter((item) => item.id !== app.id)].slice(0, 500);
     await setJSON(ELITE_APPLICATIONS_KEY, updated, true);
+    void pushRequest("elite", app);
     return true;
   } catch (err) {
     console.error("Failed to save elite application:", err);
@@ -949,7 +985,8 @@ export async function submitEliteApplication(app: EliteApplicationItem): Promise
 
 export async function getEliteApplications(): Promise<EliteApplicationItem[]> {
   try {
-    return (await getJSON<EliteApplicationItem[]>(ELITE_APPLICATIONS_KEY, true)) || [];
+    const local = (await getJSON<EliteApplicationItem[]>(ELITE_APPLICATIONS_KEY, true)) || [];
+    return mergeById(local, await pullRequests<EliteApplicationItem>("elite"));
   } catch {
     return [];
   }
@@ -979,6 +1016,7 @@ export async function updateEliteApplicationStatus(
       return a;
     });
     await setJSON(ELITE_APPLICATIONS_KEY, updated, true);
+    void updateRequestRemote("elite", id, { status, reviewedAt: Date.now(), reviewedBy });
     return true;
   } catch (err) {
     console.error("Failed to update elite application status:", err);
@@ -991,7 +1029,8 @@ export const DYNAMIC_FAQS_KEY = "faqs:dynamic_list";
 
 export async function getDynamicFaqs(): Promise<FaqItem[]> {
   try {
-    return (await getJSON<FaqItem[]>(DYNAMIC_FAQS_KEY, true)) || [];
+    const local = (await getJSON<FaqItem[]>(DYNAMIC_FAQS_KEY, true)) || [];
+    return mergeById(local, await loadStoreCollection<FaqItem>("faqs"));
   } catch {
     return [];
   }
@@ -1002,6 +1041,7 @@ export async function saveDynamicFaq(faq: FaqItem): Promise<boolean> {
     const existing = (await getJSON<FaqItem[]>(DYNAMIC_FAQS_KEY, true)) || [];
     const updated = [faq, ...existing.filter((f) => f.id !== faq.id)];
     await setJSON(DYNAMIC_FAQS_KEY, updated, true);
+    void pushStoreItem("faqs", faq);
     return true;
   } catch {
     return false;
@@ -1013,6 +1053,7 @@ export async function deleteDynamicFaq(faqId: string): Promise<boolean> {
     const existing = (await getJSON<FaqItem[]>(DYNAMIC_FAQS_KEY, true)) || [];
     const updated = existing.filter((f) => f.id !== faqId);
     await setJSON(DYNAMIC_FAQS_KEY, updated, true);
+    void deleteStoreItem("faqs", faqId);
     return true;
   } catch {
     return false;
@@ -1027,6 +1068,7 @@ export async function submitComplaintReport(report: ComplaintReport): Promise<bo
     const existing = (await getJSON<ComplaintReport[]>(COMPLAINT_REPORTS_KEY, true)) || [];
     const updated = [report, ...existing].slice(0, 500);
     await setJSON(COMPLAINT_REPORTS_KEY, updated, true);
+    void pushRequest("complaint", report);
     return true;
   } catch (err) {
     console.error("Failed to submit complaint report:", err);
@@ -1036,7 +1078,8 @@ export async function submitComplaintReport(report: ComplaintReport): Promise<bo
 
 export async function getComplaintReports(): Promise<ComplaintReport[]> {
   try {
-    return (await getJSON<ComplaintReport[]>(COMPLAINT_REPORTS_KEY, true)) || [];
+    const local = (await getJSON<ComplaintReport[]>(COMPLAINT_REPORTS_KEY, true)) || [];
+    return mergeById(local, await pullRequests<ComplaintReport>("complaint"));
   } catch {
     return [];
   }
@@ -1047,6 +1090,7 @@ export async function deleteComplaintReport(reportId: string): Promise<boolean> 
     const existing = (await getJSON<ComplaintReport[]>(COMPLAINT_REPORTS_KEY, true)) || [];
     const updated = existing.filter((r) => r.id !== reportId);
     await setJSON(COMPLAINT_REPORTS_KEY, updated, true);
+    void deleteRequestRemote("complaint", reportId);
     return true;
   } catch {
     return false;
@@ -1059,6 +1103,7 @@ export async function deleteEliteApplication(appId: string): Promise<boolean> {
     const target = existing.find((a) => a.id === appId);
     const updated = existing.filter((a) => a.id !== appId);
     await setJSON(ELITE_APPLICATIONS_KEY, updated, true);
+    void deleteRequestRemote("elite", appId);
     if (target?.username) {
       await deleteDevApplicantFile(target.username);
     }

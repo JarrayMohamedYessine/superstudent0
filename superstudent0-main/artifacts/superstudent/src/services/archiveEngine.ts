@@ -193,75 +193,84 @@ export interface FileLinksMap {
 // 4. In-Memory Static Asset Cache for Zero-Worker Client Execution
 // ---------------------------------------------------------------------------
 
-// Consolidated flat storage (<= 20 files, by category — never per-user):
-//   /data/indexes/ar.json      { charKey: InvertedIndexShard }
-//   /data/indexes/latin.json   { charKey: InvertedIndexShard }
-//   /data/records.json         { shardId: ShardedRecordMap }
-//   /data/lists.json           { "latest" | "category-{slug}": string[] }
-const indexLangCache = new Map<string, { [charKey: string]: InvertedIndexShard }>();
-let recordShardsCache: { [shard: string]: ShardedRecordMap } | null = null;
-let listsCache: { [list: string]: string[] } | null = null;
+const indexShardCache = new Map<string, InvertedIndexShard>();
+const recordShardCache = new Map<string, ShardedRecordMap>();
+let latestListCache: string[] | null = null;
 
 /**
- * Fetches the consolidated index file once per language (/data/indexes/{lang}.json),
- * then picks the char shard in memory. Zero extra requests per character.
+ * Fetches an inverted index shard from Static Assets (/data/indexes/{lang}/{char}.json)
+ * Cached client-side in memory for subsequent zero-latency queries
  */
 export async function fetchIndexShard(lang: "ar" | "latin", charKey: string): Promise<InvertedIndexShard> {
-  if (!indexLangCache.has(lang)) {
-    try {
-      const res = await fetch(`/data/indexes/${lang}.json`);
-      indexLangCache.set(lang, res.ok ? ((await res.json()) as { [charKey: string]: InvertedIndexShard }) : {});
-    } catch (err) {
-      console.warn(`Could not load consolidated index /data/indexes/${lang}.json:`, err);
-      indexLangCache.set(lang, {});
-    }
+  const cacheKey = `${lang}/${charKey}`;
+  if (indexShardCache.has(cacheKey)) {
+    return indexShardCache.get(cacheKey)!;
   }
-  return indexLangCache.get(lang)![charKey] ?? {};
+
+  try {
+    const encodedChar = encodeURIComponent(charKey);
+    const res = await fetch(`/data/indexes/${lang}/${encodedChar}.json`);
+    if (!res.ok) {
+      return {};
+    }
+    const data: InvertedIndexShard = await res.json();
+    indexShardCache.set(cacheKey, data);
+    return data;
+  } catch (err) {
+    console.warn(`Could not load index shard /data/indexes/${lang}/${charKey}.json:`, err);
+    return {};
+  }
 }
 
 /**
- * Fetches the consolidated records file once (/data/records.json), then picks
- * the shard by id in memory. Keeps future multi-shard semantics without extra files.
+ * Fetches a record shard from Static Assets (/data/records/{shard}.json)
  */
 export async function fetchRecordShard(shard: string): Promise<ShardedRecordMap> {
-  if (!recordShardsCache) {
-    try {
-      const res = await fetch("/data/records.json");
-      recordShardsCache = res.ok ? ((await res.json()) as { [shard: string]: ShardedRecordMap }) : {};
-    } catch (err) {
-      console.warn("Could not load consolidated records /data/records.json:", err);
-      recordShardsCache = {};
-    }
+  if (recordShardCache.has(shard)) {
+    return recordShardCache.get(shard)!;
   }
-  return recordShardsCache[shard] ?? {};
-}
 
-async function fetchListsMap(): Promise<{ [list: string]: string[] }> {
-  if (!listsCache) {
-    try {
-      const res = await fetch("/data/lists.json");
-      listsCache = res.ok ? ((await res.json()) as { [list: string]: string[] }) : {};
-    } catch {
-      listsCache = {};
+  try {
+    const res = await fetch(`/data/records/${shard}.json`);
+    if (!res.ok) {
+      return {};
     }
+    const data: ShardedRecordMap = await res.json();
+    recordShardCache.set(shard, data);
+    return data;
+  } catch (err) {
+    console.warn(`Could not load record shard /data/records/${shard}.json:`, err);
+    return {};
   }
-  return listsCache;
 }
 
 /**
- * Fetches latest documents list from the consolidated /data/lists.json
+ * Fetches latest documents list from Static Assets (/data/lists/latest.json)
  */
 export async function fetchLatestDocIds(): Promise<string[]> {
-  const lists = await fetchListsMap();
-  return lists["latest"] ?? [];
+  if (latestListCache) return latestListCache;
+  try {
+    const res = await fetch("/data/lists/latest.json");
+    if (!res.ok) return [];
+    const data: string[] = await res.json();
+    latestListCache = data;
+    return data;
+  } catch {
+    return [];
+  }
 }
 
 /**
- * Fetches category documents list from the consolidated /data/lists.json
+ * Fetches category documents list from Static Assets (/data/lists/category-{slug}.json)
  */
 export async function fetchCategoryDocIds(categorySlug: string): Promise<string[]> {
-  const lists = await fetchListsMap();
-  return lists[`category-${categorySlug}`] ?? [];
+  try {
+    const res = await fetch(`/data/lists/category-${categorySlug}.json`);
+    if (!res.ok) return [];
+    return await res.json();
+  } catch {
+    return [];
+  }
 }
 
 // ---------------------------------------------------------------------------

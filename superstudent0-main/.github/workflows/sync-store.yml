@@ -1,0 +1,57 @@
+name: Sync store snapshot
+# Pulls the public texts (archive bank, ads, FAQs, announcements/stories) and the pending people
+# profiles from the Worker (which reads them from Telegram) and commits them as /store/*.json
+# (20 files at most, ever). Secrets and private requests are never exported. Needs the
+# repository secrets:
+#   SS_API_URL        e.g. https://your-domain.com
+#   SS_EXPORT_TOKEN   the same value as the Worker secret EXPORT_TOKEN
+on:
+  schedule:
+    - cron: "17 */3 * * *"   # every 3 hours
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: sync-store
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    env:
+      SS_API_URL: ${{ secrets.SS_API_URL }}
+      SS_EXPORT_TOKEN: ${{ secrets.SS_EXPORT_TOKEN }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      DEPLOY_WORKFLOW: deploy.yml   # change to deploy-python.yml after you switch to the Python Worker
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run safety tests
+        run: python -m unittest discover -s backend/tests -p "test_sync.py"
+      - name: Pull snapshot (aborts without touching anything if the export looks wrong)
+        run: python backend/scripts/sync_store.py --out artifacts/superstudent/public/store --ack-file "$RUNNER_TEMP/ack_seq"
+      - name: Commit and push
+        id: push
+        run: |
+          if [ -z "$(git status --porcelain -- artifacts/superstudent/public/store)" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"; echo "No file changes."; exit 0
+          fi
+          git config user.name "store-sync[bot]"
+          git config user.email "store-sync@users.noreply.github.com"
+          git add artifacts/superstudent/public/store
+          git commit -m "chore(store): sync public text snapshot"
+          git push
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+      - name: Acknowledge people profiles (only after the push succeeded)
+        run: |
+          if [ -f "$RUNNER_TEMP/ack_seq" ]; then
+            python backend/scripts/sync_store.py --ack-from "$RUNNER_TEMP/ack_seq"
+          fi
+      - name: Trigger a deploy
+        if: steps.push.outputs.changed == 'true'
+        run: gh workflow run "$DEPLOY_WORKFLOW"

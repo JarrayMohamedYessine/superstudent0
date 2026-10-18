@@ -35,3 +35,14 @@
   Access-Control-Allow-Origin: *
   Access-Control-Allow-Methods: GET, POST, OPTIONS
   Access-Control-Allow-Headers: Content-Type, Authorization
+
+# ---------------------------------------------------------------------------
+# /store/*.json : public text snapshot (at most 20 files). Already covered by the
+# "/*.json" rule above (browser 1h, Cloudflare edge 1 week). Each file is requested
+# as ?v=<content hash>, so a new version is picked up as soon as the manifest changes.
+# The manifest has NO ".json" extension on purpose, so it gets its own short cache:
+# ---------------------------------------------------------------------------
+/store/manifest
+  Cache-Control: public, max-age=300, s-maxage=300
+  Content-Type: application/json; charset=utf-8
+  Access-Control-Allow-Origin: *

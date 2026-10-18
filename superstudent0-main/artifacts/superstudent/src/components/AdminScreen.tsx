@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { ImageLightbox } from "./ImageLightbox";
 import {
   Users as UsersIcon,
   ShieldCheck,
@@ -423,6 +424,7 @@ export function AdminScreen({
   const [mediaFilterRoom, setMediaFilterRoom] = useState<string>("all");
   const [mediaSearchQuery, setMediaSearchQuery] = useState<string>("");
   const [previewMediaModal, setPreviewMediaModal] = useState<ChatMediaItem | null>(null);
+  const [proofViewer, setProofViewer] = useState<{ src: string; title: string } | null>(null);
 
   // Complaints state
   const [reports, setReports] = useState<ComplaintReport[]>([]);
@@ -1607,11 +1609,10 @@ export function AdminScreen({
                           <p className="text-[11px] font-bold text-purple-300 flex items-center gap-1.5">
                             <span>📷 {lang === "ar" ? "وثيقة الإثبات المرفقة من المترشح (شهادة / كشف أعداد):" : "Preuve jointe :"}</span>
                           </p>
-                          <a
-                            href={app.proofImageUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="block rounded-lg overflow-hidden border border-purple-500/40 group relative"
+                          <button
+                            type="button"
+                            onClick={() => setProofViewer({ src: app.proofImageUrl as string, title: app.displayName || app.username })}
+                            className="block w-full text-start rounded-lg overflow-hidden border border-purple-500/40 group relative cursor-zoom-in"
                           >
                             <img
                               src={app.proofImageUrl}
@@ -1621,7 +1622,7 @@ export function AdminScreen({
                             <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-xs font-bold transition-opacity">
                               <span>🔍 {lang === "ar" ? "انقر للفتح بالحجم الكامل" : "Ouvrir l'image"}</span>
                             </div>
-                          </a>
+                          </button>
                         </div>
                       )}
                     </div>
@@ -3013,6 +3014,10 @@ export function AdminScreen({
           </div>
         )}
       </div>
+
+      {proofViewer && (
+        <ImageLightbox images={[proofViewer.src]} title={proofViewer.title} lang={lang} onClose={() => setProofViewer(null)} />
+      )}
 
       {/* Lightbox / Zoom Modal for Chat Media */}
       {previewMediaModal && (

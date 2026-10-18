@@ -1,0 +1,8 @@
+[project]
+name = "superstudent-api"
+version = "1.0.0"
+requires-python = ">=3.12"
+dependencies = []   # standard library only: fastest cold start, nothing to break
+
+[dependency-groups]
+dev = ["workers-py"]

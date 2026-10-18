@@ -1,8 +1,0 @@
-{
-  "name": "superstudent-root",
-  "private": true,
-  "scripts": {
-    "build": "cd superstudent0-main && corepack enable && corepack prepare pnpm@10.18.0 --activate && pnpm install --frozen-lockfile && pnpm run build:worker"
-  },
-  "packageManager": "pnpm@10.18.0"
-}

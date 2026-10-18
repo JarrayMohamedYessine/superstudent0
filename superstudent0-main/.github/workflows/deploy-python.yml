@@ -1,0 +1,27 @@
+name: Deploy Python Worker
+# Manual only on purpose: it deploys the NEW worker "archive-platform-py" next to the existing one,
+# so nothing existing is overwritten. Needs the repository secret CLOUDFLARE_API_TOKEN.
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.18.0
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run build:worker
+      - uses: astral-sh/setup-uv@v5
+      - name: Run backend tests
+        run: python3 -m unittest discover -s backend/tests -p "test_*.py"
+      - name: Deploy
+        working-directory: backend
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: uv run pywrangler deploy

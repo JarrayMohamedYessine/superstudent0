@@ -92,14 +92,5 @@
     "tailwindcss": "^4.3.3",
     "typescript": "~5.9.3",
     "vite": "^8.3.2"
-  },
-  "packageManager": "pnpm@10.18.0",
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "@firebase/util",
-      "core-js",
-      "esbuild",
-      "protobufjs"
-    ]
   }
 }
