@@ -32,7 +32,6 @@ import { COLORS, GRAD, GRAD_GOLD, GRAD_CYAN, BRANCHES, GRADE_LEVELS, T } from ".
 import {
   setJSON,
   resizeToDataURL,
-  uploadAvatarToStorage,
   saveAccount,
 } from "../services/dataService";
 import { TopBar, Avatar, TextField, ErrorNote, PrimaryButton } from "./Atoms";
@@ -120,10 +119,7 @@ export function SettingsScreen({
       return;
     }
     setSaving(true);
-    let avatarUrl = avatar;
-    if (avatar && avatar.startsWith("data:")) {
-      avatarUrl = await uploadAvatarToStorage(avatar, user.username);
-    }
+    const avatarUrl = avatar;
     const updated: Account = {
       ...user,
       displayName: displayName.trim().slice(0, 30),

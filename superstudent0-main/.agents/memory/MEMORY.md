@@ -1,1 +1,0 @@
-- [Superstudent product scope](superstudent-scope.md) — Keep browser cache separate from Telegram retrieval, and centralize Discord with Arabic, French, and English support.

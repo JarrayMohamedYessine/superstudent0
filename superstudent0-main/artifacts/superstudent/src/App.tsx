@@ -18,23 +18,20 @@ import {
 } from "lucide-react";
 import { Account, GradeLevel, LangKey, RoomItem, UserRole, BacDocumentItem } from "./types";
 import { COLORS, GRAD, PRESENCE_WINDOW_MS, isAccountBanned, BRANCHES, T } from "./constants";
-import { getJSON, setJSON, delKey, normEmail, getAccountByEmail, getEliteApplications } from "./services/dataService";
-import { getMeApi, setStoredToken } from "./services/authClient";
+import { getEliteApplications } from "./services/dataService";
+import { setStoredToken } from "./services/authClient";
 import { Logo } from "./components/Atoms";
 import { AuthScreen } from "./components/AuthScreen";
 import { BranchesScreen } from "./components/BranchesScreen";
 import { BranchDiscordScreen } from "./components/BranchDiscordScreen";
 import { AdminScreen } from "./components/AdminScreen";
 import { SettingsScreen } from "./components/SettingsScreen";
-import { DocumentsScreen } from "./components/DocumentsScreen";
 import { AnnouncementsScreen } from "./components/AnnouncementsScreen";
 import { FaqAndTrustPages } from "./components/FaqAndTrustPages";
 import { BranchOnboardingModal } from "./components/BranchOnboardingModal";
 import { NotificationCenterModal } from "./components/NotificationCenterModal";
-import { getBacDocumentById } from "./services/documentsService";
 import { getUserNotifications, isNotificationUnread } from "./services/notificationService";
 import { getStreamTheme } from "./services/themeEngine";
-import { saveUserProfileToLocalCache } from "./data/userProfilesCache";
 
 const GLOBAL_CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=Cairo:wght@400;600;700;800&display=swap');
@@ -70,7 +67,6 @@ export type AppScreen =
   | "auth"
   | "branches"
   | "discord"
-  | "documents"
   | "announcements"
   | "contribute"
   | "admin"
@@ -95,27 +91,10 @@ export default function App() {
   const [hasResolvedContributionApp, setHasResolvedContributionApp] = useState(false);
 
   useEffect(() => {
-    try {
-      const searchParams = new URLSearchParams(window.location.search);
-      const docId = searchParams.get("pdf_doc") || searchParams.get("view_pdf");
-      const directPdfUrl = searchParams.get("pdf_url");
-
-      if (docId || directPdfUrl) {
-        // Clean URL to prevent browser sandbox redirection traps
-        window.history.replaceState({}, document.title, window.location.pathname);
-        setScreen("documents");
-      }
-    } catch (e) {
-      console.error(e);
-    }
-  }, []);
-
-  useEffect(() => {
     if (!user) {
       setHasResolvedContributionApp(false);
       return;
     }
-    saveUserProfileToLocalCache(user);
     let isMounted = true;
     getEliteApplications()
       .then((apps) => {
@@ -210,72 +189,11 @@ export default function App() {
 
   const setLang = useCallback((l: LangKey) => {
     setLangState(l);
-    setJSON("lang-pref", { lang: l }, false);
   }, []);
 
   useEffect(() => {
-    (async () => {
-      try {
-        const savedLang = await getJSON<{ lang?: LangKey }>("lang-pref", false);
-        if (savedLang?.lang && ["ar", "fr", "en"].includes(savedLang.lang)) {
-          setLangState(savedLang.lang);
-        }
-
-        // 1. First check real server-side JWT session
-        const serverUser = await getMeApi();
-        if (serverUser && !isAccountBanned(serverUser)) {
-          setUser(serverUser);
-          setSelectedBranchId(serverUser.branch || "math");
-          setScreen("branches");
-        } else {
-          const session = await getJSON<{ email?: string }>("session", false);
-          if (session && session.email) {
-            const account = await getAccountByEmail(session.email);
-            if (account && !isAccountBanned(account)) {
-              setUser(account);
-              setSelectedBranchId(account.branch || "math");
-              setScreen("branches");
-            } else {
-              await delKey("session", false);
-            }
-          }
-        }
-      } catch (err) {
-        console.error("Initialization error:", err);
-      } finally {
-        setInitializing(false);
-      }
-    })();
+    setInitializing(false);
   }, []);
-
-  useEffect(() => {
-    if (!user) return;
-    let active = true;
-
-    // Local Registry Heartbeat
-    async function beat() {
-      if (!user) return;
-      try {
-        const presence =
-          (await getJSON<Record<string, number>>("presence-registry", true)) || {};
-        const now = Date.now();
-        presence[user.email] = now;
-        Object.keys(presence).forEach((k) => {
-          if (now - presence[k] > PRESENCE_WINDOW_MS * 2) delete presence[k];
-        });
-        if (active) await setJSON("presence-registry", presence, true);
-      } catch {
-        // ignore
-      }
-    }
-    beat();
-    const iv = setInterval(beat, 45000);
-
-    return () => {
-      active = false;
-      clearInterval(iv);
-    };
-  }, [user]);
 
   useEffect(() => {
     try {
@@ -295,7 +213,6 @@ export default function App() {
   async function handleLogout() {
     try {
       setStoredToken(null);
-      await delKey("session", false);
     } catch {
       // ignore
     }
@@ -309,7 +226,6 @@ export default function App() {
     if (user && user.branch !== branchId) {
       const updated = { ...user, branch: branchId };
       setUser(updated);
-      await setJSON(`account:${user.email}`, updated, true);
     }
   }
 
@@ -430,7 +346,6 @@ export default function App() {
             }}
             onPickBranch={handlePickBranch}
             onRequireAuth={() => setScreen("auth")}
-            onOpenDocuments={() => setScreen("documents")}
             onOpenAnnouncements={() => setScreen("announcements")}
             onOpenDiscord={() => setScreen("discord")}
             onOpenContribute={() => setScreen("contribute")}
@@ -456,26 +371,6 @@ export default function App() {
             onOpenNotifications={() => setIsNotifModalOpen(true)}
             unreadNotificationsCount={unreadNotifCount}
           />
-        )}
-
-        {screen === "documents" && (
-          <div className="flex flex-col min-h-screen">
-            <DocumentsScreen
-              user={effectiveUser}
-              lang={lang}
-              isRTL={isRTL}
-              onLogout={handleLogout}
-              onOpenAdmin={() => setScreen("admin")}
-              onOpenSettings={() => {
-                setSettingsSource("role");
-                setScreen("settings");
-              }}
-              onRequireAuth={() => setScreen("auth")}
-              onOpenContribute={canShowContributionPage ? () => setScreen("contribute") : undefined}
-              onOpenNotifications={() => setIsNotifModalOpen(true)}
-              unreadNotificationsCount={unreadNotifCount}
-            />
-          </div>
         )}
 
         {screen === "announcements" && (
@@ -603,27 +498,6 @@ export default function App() {
               </span>
             </button>
 
-            {/* Tab: Documents Bank (Exams, Summaries, National Tests, Corrections) */}
-            <button
-              onClick={() => setScreen("documents")}
-              className={`nav-dock-tab flex-1 min-w-0 py-1 sm:py-1.5 px-0.5 sm:px-1.5 rounded-xl sm:rounded-2xl cursor-pointer ${
-                screen === "documents" ? "active" : ""
-              }`}
-            >
-              <div className={`btn-graphic-box w-7 h-7 sm:w-8 sm:h-8 rounded-xl flex items-center justify-center transition-all ${
-                screen === "documents"
-                  ? "bg-gradient-to-tr from-emerald-600 to-teal-500 text-white shadow-md shadow-emerald-500/40"
-                  : "bg-white/[0.05] text-slate-400"
-              }`}>
-                <FileText size={16} />
-              </div>
-              <span className={`text-[9px] sm:text-[11px] font-bold truncate max-w-full text-center tracking-tight transition-colors ${
-                screen === "documents" ? "text-emerald-300" : "text-slate-400"
-              }`}>
-                {lang === "ar" ? "بنك الوثائق" : lang === "fr" ? "Sujets & Docs" : "Documents"}
-              </span>
-            </button>
-
             {/* Tab: Announcements & Live Classes */}
             <button
               onClick={() => setScreen("announcements")}
@@ -737,8 +611,7 @@ export default function App() {
         lang={lang}
         isRTL={isRTL}
         onNavigateScreen={(scrKey) => {
-          if (scrKey === "documents") setScreen("documents");
-          else if (scrKey === "admin") setScreen("admin");
+          if (scrKey === "admin") setScreen("admin");
           else if (scrKey === "faq") setScreen("faq");
           else if (scrKey === "branches") setScreen("branches");
           setIsNotifModalOpen(false);

@@ -52,7 +52,6 @@ export function AuthModal({
       createdAt: Date.now(),
     };
 
-    localStorage.setItem("super_student_auth", JSON.stringify(user));
     onAuthSuccess(user);
     onClose();
   };

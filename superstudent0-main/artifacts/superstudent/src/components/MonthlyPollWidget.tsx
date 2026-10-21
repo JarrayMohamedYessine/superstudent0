@@ -22,11 +22,8 @@ export function MonthlyPollWidget({
   const [hasVoted, setHasVoted] = useState(false);
   const [voting, setVoting] = useState(false);
 
-  const userId = user ? user.username : (localStorage.getItem("bac_anon_voter_id") || (() => {
-    const id = "anon_" + Math.random().toString(36).slice(2, 8);
-    localStorage.setItem("bac_anon_voter_id", id);
-    return id;
-  })());
+  const [anonId] = useState(() => "anon_" + Math.random().toString(36).slice(2, 8));
+  const userId = user ? user.username : anonId;
 
   useEffect(() => {
     async function load() {

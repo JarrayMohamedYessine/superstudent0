@@ -20,14 +20,8 @@ import {
   getAccountByUsername,
   saveAccount,
   normEmail,
-  setJSON,
 } from "../services/dataService";
 import { loginWithGoogle } from "../services/firebase";
-import {
-  executeAuthLogin,
-  executeAuthSignup,
-  verifyCachedCredentials,
-} from "../services/authCacheService";
 import { loginApi, registerApi } from "../services/authClient";
 import { Logo, ErrorNote, Spinner } from "./Atoms";
 
@@ -106,28 +100,7 @@ export function AuthScreen({
         targetEmail = found.email;
       }
 
-      // Check Auth Cache or dataService
-      const cachedMatch = verifyCachedCredentials(targetEmail, password);
-      let account: Account | null = null;
-
-      if (cachedMatch) {
-        account = {
-          email: cachedMatch.email,
-          username: cachedMatch.username,
-          displayName: cachedMatch.displayName,
-          branch: cachedMatch.branch,
-          gradeLevel: (cachedMatch.gradeLevel as GradeLevel) || "4eme_bac",
-          role: cachedMatch.role,
-          avatar: null,
-          createdAt: cachedMatch.createdAt,
-          canUpload: cachedMatch.canUpload,
-          banned: cachedMatch.banned,
-          moderatorRooms: [],
-          bannedUntil: null,
-        };
-      } else {
-        account = await getAccountByEmail(targetEmail);
-      }
+      const account: Account | null = await getAccountByEmail(targetEmail);
 
       if (!account) {
         setError(lang === "ar" ? "الحساب غير مسجل، يمكنك إنشاء حساب جديد" : lang === "fr" ? "Compte introuvable." : "Account not found.");
@@ -141,8 +114,6 @@ export function AuthScreen({
         return;
       }
 
-      await setJSON("session", { email: account.email }, false);
-      await executeAuthLogin(account, password);
       onAuthed(account);
     } catch (err: any) {
       console.error("Login exception:", err);
@@ -232,14 +203,6 @@ export function AuthScreen({
       };
 
       await saveAccount(newAccount);
-      await setJSON("session", { email: email }, false);
-      await executeAuthSignup({
-        displayName,
-        username,
-        email,
-        branch,
-        password,
-      });
       onAuthed(newAccount);
     } catch (err: any) {
       console.error("Signup exception:", err);
@@ -255,7 +218,6 @@ export function AuthScreen({
     try {
       const res = await loginWithGoogle();
       if (res.success && res.user) {
-        await setJSON("session", { email: res.user.email }, false);
         onAuthed(res.user);
       } else {
         setError(res.error || (lang === "ar" ? "فشل تسجيل الدخول بـ Google" : "Google sign in failed"));

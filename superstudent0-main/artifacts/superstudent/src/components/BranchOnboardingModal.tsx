@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { Account, LangKey } from "../types";
 import { BRANCHES, COLORS, GRAD, T } from "../constants";
-import { saveAccount, resizeToDataURL, uploadAvatarToStorage } from "../services/dataService";
+import { saveAccount, resizeToDataURL } from "../services/dataService";
 import { auth, syncUserProfileToFirestore } from "../services/firebase";
 import { Avatar, ErrorNote } from "./Atoms";
 
@@ -107,14 +107,7 @@ export function BranchOnboardingModal({
     }
 
     setSaving(true);
-    let finalAvatar = avatar;
-    if (avatar && avatar.startsWith("data:")) {
-      try {
-        finalAvatar = await uploadAvatarToStorage(avatar, user.username || user.email.split("@")[0]);
-      } catch (err) {
-        console.warn("Avatar upload warning:", err);
-      }
-    }
+    const finalAvatar = avatar;
 
     const updated: Account = {
       ...user,

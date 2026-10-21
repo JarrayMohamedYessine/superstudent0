@@ -19,14 +19,12 @@ interface HomepageAnnouncementBannerProps {
   lang: LangKey;
   isRTL: boolean;
   user: Account | null;
-  onOpenDocuments?: () => void;
 }
 
 export function HomepageAnnouncementBanner({
   lang,
   isRTL,
   user,
-  onOpenDocuments,
 }: HomepageAnnouncementBannerProps) {
   const [announcement, setAnnouncement] = useState<HomepageAnnouncement | null>(null);
   const [sessionDismissed, setSessionDismissed] = useState(false);

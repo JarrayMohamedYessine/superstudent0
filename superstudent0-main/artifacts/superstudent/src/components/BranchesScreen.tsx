@@ -43,7 +43,6 @@ interface BranchesScreenProps {
   onOpenSettings: () => void;
   onPickBranch: (branchId: string) => void;
   onRequireAuth?: () => void;
-  onOpenDocuments?: () => void;
   onOpenAnnouncements?: () => void;
   onOpenDiscord?: () => void;
   onOpenContribute?: () => void;
@@ -73,7 +72,6 @@ export function BranchesScreen({
   onOpenSettings,
   onPickBranch,
   onRequireAuth,
-  onOpenDocuments,
   onOpenAnnouncements,
   onOpenDiscord,
   onOpenContribute,
@@ -300,24 +298,6 @@ export function BranchesScreen({
               {lang === "ar"
                 ? "مساحة للتواصل وتبادل الأسئلة وتنظيم جلسات المراجعة الجماعية."
                 : "Un espace pour poser des questions et réviser en groupe."}
-            </p>
-          </div>
-
-          {/* Feature 3: Archive */}
-          <div
-            onClick={onOpenDocuments}
-            className="p-4 rounded-2xl bg-white/5 border border-white/10 hover:border-emerald-500/30 hover:bg-white/[0.08] transition-all flex flex-col gap-2 cursor-pointer"
-          >
-            <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-300 flex items-center justify-center">
-              <BookOpen size={20} />
-            </div>
-            <h3 className="text-xs font-bold text-white">
-              {lang === "ar" ? "بنك الوثائق والامتحانات" : lang === "fr" ? "Documents et sujets" : "Documents and exam papers"}
-            </h3>
-            <p className="text-[11px] text-slate-400 leading-relaxed">
-              {lang === "ar"
-                ? "وثائق وملخصات وامتحانات وتمارين مع الإصلاح حسب المواد والشعب."
-                : "Des documents, fiches, sujets et exercices corrigés."}
             </p>
           </div>
         </div>

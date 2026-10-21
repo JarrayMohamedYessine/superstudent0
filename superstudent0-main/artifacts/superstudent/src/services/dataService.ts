@@ -13,22 +13,6 @@ import {
   ComplaintReport,
   UserRole,
 } from "../types";
-import {
-  getLocalUserProfile,
-  saveUserProfileToLocalCache,
-} from "../data/userProfilesCache";
-import {
-  deleteAccountRemote,
-  deleteRequestRemote,
-  deleteStoreItem,
-  mergeById,
-  pullRequests,
-  pushRequest,
-  pushStoreItem,
-  syncAdminUser,
-  updateRequestRemote,
-} from "./cloudRequests";
-import { loadStoreCollection } from "./cloudStore";
 
 // ━━━━━━━━━━━━━━━━━━━━ RELATIONAL ACCOUNTS & PROFILES ━━━━━━━━━━━━━━━━━━━━
 
@@ -58,27 +42,6 @@ export async function getAccountByEmail(email: string): Promise<Account | null> 
 
   const isOwner = await isRootOwnerEmail(emailNorm);
   let cached = await getJSON<Account>("account:" + emailNorm, true);
-
-  // Fast local file cache fallback
-  if (!cached) {
-    const localProfile = getLocalUserProfile(emailNorm);
-    if (localProfile) {
-      cached = {
-        email: localProfile.email,
-        username: localProfile.username,
-        displayName: localProfile.displayName,
-        branch: localProfile.branch,
-        gradeLevel: (localProfile.gradeLevel as any) || "4eme_bac",
-        role: localProfile.role,
-        avatar: localProfile.avatar || null,
-        createdAt: localProfile.createdAt || Date.now(),
-        canUpload: localProfile.canUpload,
-        banned: localProfile.banned || false,
-        moderatorRooms: localProfile.moderatorRooms || [],
-        bannedUntil: null,
-      };
-    }
-  }
 
   if (cached && isOwner) {
     cached.role = "superadmin";
@@ -123,37 +86,11 @@ export async function getAccountByAccessCode(code: string): Promise<Account | nu
 export async function saveAccount(account: Account): Promise<boolean> {
   const emailNorm = normEmail(account.email);
 
-  if (typeof localStorage !== "undefined") {
-    const existingOwner = localStorage.getItem("superstudent_primary_owner_email");
-    if (!existingOwner) {
-      const accountKeys = await listKeys("account:");
-      if (!accountKeys || accountKeys.length === 0) {
-        localStorage.setItem("superstudent_primary_owner_email", emailNorm);
-        account.role = "superadmin";
-        account.canUpload = true;
-      } else {
-        const firstKey = accountKeys[0];
-        const firstEmail = firstKey.replace("account:", "").trim().toLowerCase();
-        localStorage.setItem("superstudent_primary_owner_email", firstEmail);
-        if (firstEmail === emailNorm) {
-          account.role = "superadmin";
-          account.canUpload = true;
-        }
-      }
-    } else if (existingOwner.trim().toLowerCase() === emailNorm) {
-      account.role = "superadmin";
-      account.canUpload = true;
-    }
-  }
-
   const kvOk = await setJSON("account:" + emailNorm, account, true);
   await setJSON("usernameIndex:" + account.username.toLowerCase(), { email: emailNorm }, true);
   if (account.accessCode) {
     await setJSON("accessCodeIndex:" + account.accessCode.trim().toUpperCase(), { email: emailNorm }, true);
   }
-
-  // Always mirror and sync account profile info into local userProfilesCache
-  saveUserProfileToLocalCache(account);
 
   return kvOk;
 }
@@ -165,7 +102,6 @@ export async function promoteToModeratorRPC(targetEmail: string, roomIds: string
   if (acc) {
     const updated: Account = { ...acc, role: "moderator", moderatorRooms: roomIds };
     await setJSON("account:" + normEmail(targetEmail), updated, true);
-    void syncAdminUser(targetEmail, { role: "moderator", moderatorRooms: roomIds });
     return { success: true };
   }
   return { success: false, error: "Account not found" };
@@ -176,7 +112,6 @@ export async function demoteModeratorRPC(targetEmail: string): Promise<{ success
   if (acc) {
     const updated: Account = { ...acc, role: "member", moderatorRooms: [] };
     await setJSON("account:" + normEmail(targetEmail), updated, true);
-    void syncAdminUser(targetEmail, { role: "member", moderatorRooms: [] });
     return { success: true };
   }
   return { success: false, error: "Account not found" };
@@ -187,7 +122,6 @@ export async function promoteToSuperAdminRPC(targetEmail: string): Promise<{ suc
   if (acc) {
     const updated: Account = { ...acc, role: "superadmin" };
     await setJSON("account:" + normEmail(targetEmail), updated, true);
-    void syncAdminUser(targetEmail, { role: "superadmin" });
     return { success: true };
   }
   return { success: false, error: "Account not found" };
@@ -198,7 +132,6 @@ export async function demoteSuperAdminRPC(targetEmail: string): Promise<{ succes
   if (acc) {
     const updated: Account = { ...acc, role: "member" };
     await setJSON("account:" + normEmail(targetEmail), updated, true);
-    void syncAdminUser(targetEmail, { role: "member" });
     return { success: true };
   }
   return { success: false, error: "Account not found" };
@@ -213,15 +146,7 @@ export async function banUserRPC(targetEmail: string, durationMs: number | null)
       bannedUntil: durationMs === null ? null : Date.now() + durationMs,
     };
     await setJSON("account:" + normEmail(targetEmail), updated, true);
-    void syncAdminUser(targetEmail, { banned: durationMs === null, bannedUntil: durationMs === null ? null : updated.bannedUntil });
 
-    // Automatic purge of user's attached documents upon ban
-    try {
-      const { purgeDocumentsByUsername } = await import("./documentsService");
-      await purgeDocumentsByUsername(acc.username);
-    } catch {
-      // ignore
-    }
 
     // Sync with server in-memory blacklist
     try {
@@ -247,7 +172,6 @@ export async function unbanUserRPC(targetEmail: string): Promise<{ success: bool
   if (acc) {
     const updated: Account = { ...acc, banned: false, bannedUntil: null };
     await setJSON("account:" + normEmail(targetEmail), updated, true);
-    void syncAdminUser(targetEmail, { banned: false, bannedUntil: null });
 
     // Sync unban with server in-memory blacklist
     try {
@@ -272,7 +196,6 @@ export async function setEliteStudentRPC(targetEmail: string, isElite: boolean):
   if (acc) {
     const updated: Account = { ...acc, role: isElite ? "elite_student" : "member" };
     await setJSON("account:" + normEmail(targetEmail), updated, true);
-    void syncAdminUser(targetEmail, { role: updated.role });
     return { success: true };
   }
   return { success: false, error: "Account not found" };
@@ -283,7 +206,6 @@ export async function setUserCanUploadRPC(targetEmail: string, allowed: boolean)
   if (acc) {
     const updated: Account = { ...acc, canUpload: allowed };
     await setJSON("account:" + normEmail(targetEmail), updated, true);
-    void syncAdminUser(targetEmail, { canUpload: allowed });
     return { success: true };
   }
   return { success: false, error: "Account not found" };
@@ -297,7 +219,6 @@ export async function resolveEliteApplicationRPC(appId: string, newStatus: "appr
 export async function deleteUserAccountRPC(targetEmail: string): Promise<{ success: boolean; error?: string }> {
   const norm = normEmail(targetEmail);
   const acc = await getAccountByEmail(norm);
-  void deleteAccountRemote(norm);
 
   const keysToDelete: string[] = ["account:" + norm];
 
@@ -333,298 +254,43 @@ export async function deleteUserAccountRPC(targetEmail: string): Promise<{ succe
       // safe ignore
     }
 
-    // 3. Purge user's authored documents to prevent orphaned content
-    try {
-      const { purgeDocumentsByUsername } = await import("./documentsService");
-      await purgeDocumentsByUsername(acc.username);
-    } catch {
-      // safe ignore
-    }
-  }
-
-  // 4. Evict profile from memory cache and localStorage
-  try {
-    const { evictUserProfileCache } = await import("../data/userProfilesCache");
-    evictUserProfileCache(norm);
-    if (acc?.username) {
-      evictUserProfileCache(acc.username);
-    }
-  } catch {
-    // safe ignore
   }
 
   return { success: true };
 }
 
-// ━━━━━━━━━━━━━━━━━━━━ STORAGE UPLOADS & FILE SAFETY ━━━━━━━━━━━━━━━━━━━━
-
-export async function uploadFileToCloudStorage(
-  dataUrl: string,
-  fileName: string,
-  folder: "pdfs" | "images" | "avatars" = "images"
-): Promise<string | null> {
-  if (!dataUrl || !dataUrl.startsWith("data:")) return dataUrl || null;
-
-  // Try worker persistent endpoint
-  try {
-    let res: Response;
-    if (dataUrl.length > 2_000_000) {
-      // Large file: send it as multipart (the Worker streams it straight to Catbox).
-      const blob = await (await fetch(dataUrl)).blob();
-      const fd = new FormData();
-      fd.append("reqtype", "fileupload");
-      fd.append("fileToUpload", blob, fileName);
-      res = await fetch(`/api/storage/upload?folder=${folder}`, { method: "POST", body: fd });
-    } else {
-      res = await fetch("/api/storage/upload", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ dataUrl, fileName, folder }),
-      });
-    }
-    if (res.ok) {
-      const data = await res.json();
-      if (data.success && data.url) {
-        return data.url;
-      }
-    }
-  } catch {
-    // Return dataUrl as fallback
-  }
-
-  return dataUrl;
-}
-
-export async function uploadPDFToStorage(dataUrl: string, fileName: string, msgId: string): Promise<string | null> {
-  return await uploadFileToCloudStorage(dataUrl, fileName, "pdfs");
-}
-
-export async function uploadChatImageToStorage(dataUrl: string, fileName: string): Promise<string> {
-  const result = await uploadFileToCloudStorage(dataUrl, fileName, "images");
-  return result || dataUrl;
-}
-
-export async function uploadAvatarToStorage(dataUrl: string, userUidOrUsername: string): Promise<string> {
-  if (!dataUrl || !dataUrl.startsWith("data:")) return dataUrl;
-  try {
-    const cloudUrl = await uploadFileToCloudStorage(dataUrl, `avatar_${userUidOrUsername}.jpg`, "avatars");
-    return cloudUrl || dataUrl;
-  } catch {
-    return dataUrl;
-  }
-}
-
-// ━━━━━━━━━━━━━━━━━━━━ STORAGE & CACHE HELPERS (INDEXED_DB + MEMORY + LOCALSTORAGE) ━━━━━━━━━━━━━━━━━━━━
+// ━━━━━━━━━━━━━━━━━━━━ IN-MEMORY STATE (no persistence) ━━━━━━━━━━━━━━━━━━━━
+// Nothing is written to localStorage / IndexedDB / cache / network: state lives only
+// in memory for the lifetime of the page.
 
 const memoryStore = new Map<string, unknown>();
-let idbPromise: Promise<IDBDatabase | null> | null = null;
 
-function getIDB(): Promise<IDBDatabase | null> {
-  if (typeof indexedDB === "undefined") return Promise.resolve(null);
-  if (!idbPromise) {
-    idbPromise = new Promise((resolve) => {
-      try {
-        const req = indexedDB.open("superstudent_db_v2", 1);
-        req.onupgradeneeded = () => {
-          const db = req.result;
-          if (!db.objectStoreNames.contains("keyval")) {
-            db.createObjectStore("keyval");
-          }
-        };
-        req.onsuccess = () => resolve(req.result);
-        req.onerror = () => resolve(null);
-      } catch {
-        resolve(null);
-      }
-    });
-  }
-  return idbPromise;
+function fullKeyOf(key: string, shared: boolean): string {
+  return (shared ? "bac_shared:" : "bac:") + key;
 }
 
 export async function getJSON<T = unknown>(key: string, shared = false): Promise<T | null> {
-  const fullKey = (shared ? "bac_shared:" : "bac:") + key;
-
-  // 1. Check memory store
-  if (memoryStore.has(fullKey)) {
-    return memoryStore.get(fullKey) as T;
-  }
-
-  // 2. Check IndexedDB (primary storage for large files & datasets)
-  try {
-    const db = await getIDB();
-    if (db) {
-      const val = await new Promise<T | null>((resolve) => {
-        try {
-          const tx = db.transaction("keyval", "readonly");
-          const store = tx.objectStore("keyval");
-          const req = store.get(fullKey);
-          req.onsuccess = () => resolve((req.result as T) ?? null);
-          req.onerror = () => resolve(null);
-        } catch {
-          resolve(null);
-        }
-      });
-      if (val !== null && val !== undefined) {
-        memoryStore.set(fullKey, val);
-        return val;
-      }
-    }
-  } catch {
-    // fallback
-  }
-
-  // 3. Check localStorage
-  try {
-    const v = localStorage.getItem(fullKey);
-    if (v) {
-      const parsed = JSON.parse(v) as T;
-      memoryStore.set(fullKey, parsed);
-      return parsed;
-    }
-  } catch {
-    // ignore
-  }
-
-  return null;
+  const k = fullKeyOf(key, shared);
+  return memoryStore.has(k) ? (memoryStore.get(k) as T) : null;
 }
 
 export async function setJSON(key: string, value: unknown, shared = false): Promise<boolean> {
-  const fullKey = (shared ? "bac_shared:" : "bac:") + key;
-
-  // 1. Update memory store
-  memoryStore.set(fullKey, value);
-
-  // 2. Persist to IndexedDB (handles large PDFs without quota limits)
-  try {
-    const db = await getIDB();
-    if (db) {
-      await new Promise<boolean>((resolve) => {
-        try {
-          const tx = db.transaction("keyval", "readwrite");
-          const store = tx.objectStore("keyval");
-          const req = store.put(value, fullKey);
-          req.onsuccess = () => resolve(true);
-          req.onerror = () => resolve(false);
-        } catch {
-          resolve(false);
-        }
-      });
-    }
-  } catch {
-    // ignore
-  }
-
-  // 3. Best-effort mirror to localStorage for small payloads (< 500KB)
-  try {
-    const serialized = JSON.stringify(value);
-    if (serialized.length < 500000) {
-      localStorage.setItem(fullKey, serialized);
-    }
-  } catch {
-    // Safe ignore: IndexedDB already stored the full payload safely!
-  }
-
+  memoryStore.set(fullKeyOf(key, shared), value);
   return true;
 }
 
 export async function delKey(key: string, shared = false): Promise<void> {
-  const fullKey = (shared ? "bac_shared:" : "bac:") + key;
-  memoryStore.delete(fullKey);
-
-  try {
-    const db = await getIDB();
-    if (db) {
-      await new Promise<void>((resolve) => {
-        try {
-          const tx = db.transaction("keyval", "readwrite");
-          tx.objectStore("keyval").delete(fullKey);
-          tx.oncomplete = () => resolve();
-          tx.onerror = () => resolve();
-        } catch {
-          resolve();
-        }
-      });
-    }
-  } catch {
-    // ignore
-  }
-
-  try {
-    localStorage.removeItem(fullKey);
-  } catch {
-    // ignore
-  }
+  memoryStore.delete(fullKeyOf(key, shared));
 }
 
 export async function listKeys(prefix: string, shared = false): Promise<string[]> {
-  const storagePrefix = shared ? "bac_shared:" : "bac:";
-  const targetPrefix = storagePrefix + prefix;
-  const out = new Set<string>();
-
-  // 1. Memory keys
+  const base = shared ? "bac_shared:" : "bac:";
+  const target = base + prefix;
+  const out: string[] = [];
   for (const k of memoryStore.keys()) {
-    if (k.startsWith(targetPrefix)) {
-      out.add(k.slice(storagePrefix.length));
-    }
+    if (k.startsWith(target)) out.push(k.slice(base.length));
   }
-
-  // 2. LocalStorage keys
-  try {
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i);
-      if (k && k.startsWith(targetPrefix)) {
-        out.add(k.slice(storagePrefix.length));
-      }
-    }
-  } catch {
-    // ignore
-  }
-
-  // 3. IndexedDB keys
-  try {
-    const db = await getIDB();
-    if (db) {
-      await new Promise<void>((resolve) => {
-        try {
-          const tx = db.transaction("keyval", "readonly");
-          const req = tx.objectStore("keyval").getAllKeys();
-          req.onsuccess = () => {
-            const keys = (req.result as string[]) || [];
-            keys.forEach((k) => {
-              if (typeof k === "string" && k.startsWith(targetPrefix)) {
-                out.add(k.slice(storagePrefix.length));
-              }
-            });
-            resolve();
-          };
-          req.onerror = () => resolve();
-        } catch {
-          resolve();
-        }
-      });
-    }
-  } catch {
-    // ignore
-  }
-
-  return Array.from(out);
-}
-
-// Compatibility no-op / local KV methods
-export async function sbGet<T = unknown>(key: string): Promise<T | null> {
-  return await getJSON<T>(key, true);
-}
-
-export async function sbSet(key: string, value: unknown): Promise<boolean> {
-  return await setJSON(key, value, true);
-}
-
-export async function sbDel(key: string): Promise<void> {
-  return await delKey(key, true);
-}
-
-export async function sbList(prefix: string): Promise<string[]> {
-  return await listKeys(prefix, true);
+  return out;
 }
 
 // ━━━━━━━━━━━━━━━━━━━━ MEDIA & IMAGE HELPERS ━━━━━━━━━━━━━━━━━━━━
@@ -884,7 +550,6 @@ export async function submitStudentFeedback(fb: StudentFeedbackItem): Promise<bo
     const existing = (await getJSON<StudentFeedbackItem[]>(STUDENT_FEEDBACKS_KEY, true)) || [];
     const updated = [fb, ...existing.filter((item) => item.id !== fb.id)].slice(0, 500);
     await setJSON(STUDENT_FEEDBACKS_KEY, updated, true);
-    void pushRequest("feedback", fb);
     return true;
   } catch (err) {
     console.error("Failed to save student feedback:", err);
@@ -895,7 +560,7 @@ export async function submitStudentFeedback(fb: StudentFeedbackItem): Promise<bo
 export async function getStudentFeedbacks(): Promise<StudentFeedbackItem[]> {
   try {
     const local = (await getJSON<StudentFeedbackItem[]>(STUDENT_FEEDBACKS_KEY, true)) || [];
-    return mergeById(local, await pullRequests<StudentFeedbackItem>("feedback"));
+    return local;
   } catch {
     return [];
   }
@@ -906,7 +571,6 @@ export async function deleteStudentFeedback(id: string): Promise<boolean> {
     const existing = (await getJSON<StudentFeedbackItem[]>(STUDENT_FEEDBACKS_KEY, true)) || [];
     const updated = existing.filter((f) => f.id !== id);
     await setJSON(STUDENT_FEEDBACKS_KEY, updated, true);
-    void deleteRequestRemote("feedback", id);
     return true;
   } catch {
     return false;
@@ -918,7 +582,6 @@ export async function toggleResolveStudentFeedback(id: string, resolved?: boolea
     const existing = (await getJSON<StudentFeedbackItem[]>(STUDENT_FEEDBACKS_KEY, true)) || [];
     const updated = existing.map((f) => (f.id === id ? { ...f, resolved: resolved !== undefined ? resolved : !f.resolved } : f));
     await setJSON(STUDENT_FEEDBACKS_KEY, updated, true);
-    void updateRequestRemote("feedback", id, { resolved: updated.find((f) => f.id === id)?.resolved === true });
     return true;
   } catch {
     return false;
@@ -975,7 +638,6 @@ export async function submitEliteApplication(app: EliteApplicationItem): Promise
     const existing = (await getJSON<EliteApplicationItem[]>(ELITE_APPLICATIONS_KEY, true)) || [];
     const updated = [app, ...existing.filter((item) => item.id !== app.id)].slice(0, 500);
     await setJSON(ELITE_APPLICATIONS_KEY, updated, true);
-    void pushRequest("elite", app);
     return true;
   } catch (err) {
     console.error("Failed to save elite application:", err);
@@ -986,7 +648,7 @@ export async function submitEliteApplication(app: EliteApplicationItem): Promise
 export async function getEliteApplications(): Promise<EliteApplicationItem[]> {
   try {
     const local = (await getJSON<EliteApplicationItem[]>(ELITE_APPLICATIONS_KEY, true)) || [];
-    return mergeById(local, await pullRequests<EliteApplicationItem>("elite"));
+    return local;
   } catch {
     return [];
   }
@@ -1016,7 +678,6 @@ export async function updateEliteApplicationStatus(
       return a;
     });
     await setJSON(ELITE_APPLICATIONS_KEY, updated, true);
-    void updateRequestRemote("elite", id, { status, reviewedAt: Date.now(), reviewedBy });
     return true;
   } catch (err) {
     console.error("Failed to update elite application status:", err);
@@ -1030,7 +691,7 @@ export const DYNAMIC_FAQS_KEY = "faqs:dynamic_list";
 export async function getDynamicFaqs(): Promise<FaqItem[]> {
   try {
     const local = (await getJSON<FaqItem[]>(DYNAMIC_FAQS_KEY, true)) || [];
-    return mergeById(local, await loadStoreCollection<FaqItem>("faqs"));
+    return local;
   } catch {
     return [];
   }
@@ -1041,7 +702,6 @@ export async function saveDynamicFaq(faq: FaqItem): Promise<boolean> {
     const existing = (await getJSON<FaqItem[]>(DYNAMIC_FAQS_KEY, true)) || [];
     const updated = [faq, ...existing.filter((f) => f.id !== faq.id)];
     await setJSON(DYNAMIC_FAQS_KEY, updated, true);
-    void pushStoreItem("faqs", faq);
     return true;
   } catch {
     return false;
@@ -1053,7 +713,6 @@ export async function deleteDynamicFaq(faqId: string): Promise<boolean> {
     const existing = (await getJSON<FaqItem[]>(DYNAMIC_FAQS_KEY, true)) || [];
     const updated = existing.filter((f) => f.id !== faqId);
     await setJSON(DYNAMIC_FAQS_KEY, updated, true);
-    void deleteStoreItem("faqs", faqId);
     return true;
   } catch {
     return false;
@@ -1068,7 +727,6 @@ export async function submitComplaintReport(report: ComplaintReport): Promise<bo
     const existing = (await getJSON<ComplaintReport[]>(COMPLAINT_REPORTS_KEY, true)) || [];
     const updated = [report, ...existing].slice(0, 500);
     await setJSON(COMPLAINT_REPORTS_KEY, updated, true);
-    void pushRequest("complaint", report);
     return true;
   } catch (err) {
     console.error("Failed to submit complaint report:", err);
@@ -1079,7 +737,7 @@ export async function submitComplaintReport(report: ComplaintReport): Promise<bo
 export async function getComplaintReports(): Promise<ComplaintReport[]> {
   try {
     const local = (await getJSON<ComplaintReport[]>(COMPLAINT_REPORTS_KEY, true)) || [];
-    return mergeById(local, await pullRequests<ComplaintReport>("complaint"));
+    return local;
   } catch {
     return [];
   }
@@ -1090,7 +748,6 @@ export async function deleteComplaintReport(reportId: string): Promise<boolean> 
     const existing = (await getJSON<ComplaintReport[]>(COMPLAINT_REPORTS_KEY, true)) || [];
     const updated = existing.filter((r) => r.id !== reportId);
     await setJSON(COMPLAINT_REPORTS_KEY, updated, true);
-    void deleteRequestRemote("complaint", reportId);
     return true;
   } catch {
     return false;
@@ -1103,7 +760,6 @@ export async function deleteEliteApplication(appId: string): Promise<boolean> {
     const target = existing.find((a) => a.id === appId);
     const updated = existing.filter((a) => a.id !== appId);
     await setJSON(ELITE_APPLICATIONS_KEY, updated, true);
-    void deleteRequestRemote("elite", appId);
     if (target?.username) {
       await deleteDevApplicantFile(target.username);
     }

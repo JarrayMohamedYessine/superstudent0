@@ -12,8 +12,6 @@ import {
   AiMessageReaction,
 } from "../types";
 import { getJSON, setJSON, listKeys } from "./dataService";
-import { mergeById, pullRequests, pushContent, pushRequest } from "./cloudRequests";
-import { loadContentKind } from "./cloudStore";
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 1. REAL BAC FAQ DATA (أسئلة شائعة حقيقية مبنية على الواقع التونسي)
@@ -207,8 +205,7 @@ export const INITIAL_MONTHLY_POLL: MonthlyPollItem = {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 export async function getSuccessStories(): Promise<SuccessStoryItem[]> {
-  const localCustom = await getJSON<SuccessStoryItem[]>("success_stories", true);
-  const custom = mergeById(Array.isArray(localCustom) ? localCustom : [], await loadContentKind<SuccessStoryItem>("story"));
+  const custom = (await getJSON<SuccessStoryItem[]>("success_stories", true)) || [];
   if (custom.length > 0) {
     return custom;
   }
@@ -219,7 +216,6 @@ export async function submitSuccessStory(story: SuccessStoryItem): Promise<boole
   const current = await getSuccessStories();
   const updated = [story, ...current];
   const ok = await setJSON("success_stories", updated, true);
-  void pushContent("story", [story]);
   return ok;
 }
 
@@ -255,13 +251,11 @@ export async function submitContactTicket(ticket: ContactTicketItem): Promise<bo
   const tickets = (await getJSON<ContactTicketItem[]>("contact_tickets", true)) || [];
   const updated = [ticket, ...tickets];
   const ok = await setJSON("contact_tickets", updated, true);
-  void pushRequest("ticket", ticket);
   return ok;
 }
 
 export async function getContactTickets(): Promise<ContactTicketItem[]> {
-  const local = (await getJSON<ContactTicketItem[]>("contact_tickets", true)) || [];
-  return mergeById(local, await pullRequests<ContactTicketItem>("ticket"));
+  return (await getJSON<ContactTicketItem[]>("contact_tickets", true)) || [];
 }
 
 export async function recordAiMessageReaction(reaction: AiMessageReaction): Promise<void> {
@@ -299,20 +293,6 @@ export function getCachedAiResponse(prompt: string, branch = "", subject = ""): 
     return { text: mem.answer, model: mem.model, provider: mem.provider + " (⚡ Cache)" };
   }
 
-  // 2. Check localStorage
-  try {
-    const local = localStorage.getItem("bac_ai_cache_" + key);
-    if (local) {
-      const parsed = JSON.parse(local);
-      if (Date.now() - parsed.timestamp < 1000 * 60 * 60 * 24 * 7) {
-        memoryAiCache.set(key, parsed);
-        return { text: parsed.answer, model: parsed.model, provider: parsed.provider + " (⚡ Cache)" };
-      }
-    }
-  } catch {
-    // ignore
-  }
-
   return null;
 }
 
@@ -322,11 +302,6 @@ export function setCachedAiResponse(prompt: string, branch: string, subject: str
   const data = { answer, model, provider, timestamp: Date.now() };
 
   memoryAiCache.set(key, data);
-  try {
-    localStorage.setItem("bac_ai_cache_" + key, JSON.stringify(data));
-  } catch {
-    // quota exceeded fallback
-  }
 }
 
 export function getCachedAiAnswer(prompt: string, branch = "", subject = ""): string | null {

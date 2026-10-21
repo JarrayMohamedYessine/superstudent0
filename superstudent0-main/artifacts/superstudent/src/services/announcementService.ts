@@ -1,7 +1,5 @@
 import { Account, HomepageAnnouncement, LangKey, SuperAnnouncement, AnnouncementType, UserRole } from "../types";
 import { getJSON, setJSON } from "./dataService";
-import { deleteContent, mergeById, pushContent } from "./cloudRequests";
-import { loadContentKind } from "./cloudStore";
 import { INITIAL_SUPER_ANNOUNCEMENTS } from "../data/announcementsDataset";
 
 const HOMEPAGE_ANNOUNCEMENTS_KEY = "superstudent_homepage_announcements_v1";
@@ -105,10 +103,7 @@ async function getDeletedSuperAnnouncementIds(): Promise<string[]> {
 export async function getAllSuperAnnouncements(): Promise<SuperAnnouncement[]> {
   try {
     const deletedIds = new Set(await getDeletedSuperAnnouncementIds());
-    const customList = mergeById(
-      (await getJSON<SuperAnnouncement[]>(SUPER_ANNOUNCEMENTS_KEY, true)) || [],
-      await loadContentKind<SuperAnnouncement>("super_ann"),
-    );
+    const customList = (await getJSON<SuperAnnouncement[]>(SUPER_ANNOUNCEMENTS_KEY, true)) || [];
     const customIds = new Set(customList.map((a: SuperAnnouncement) => a.id));
 
     const merged = [
@@ -226,7 +221,6 @@ export async function publishSuperAnnouncement(
 
     customList.unshift(newAnnouncement);
     await setJSON(SUPER_ANNOUNCEMENTS_KEY, customList, true);
-    void pushContent("super_ann", [newAnnouncement]);
 
     return { success: true, announcement: newAnnouncement };
   } catch (err) {
@@ -288,7 +282,6 @@ export async function updateSuperAnnouncement(
     }
 
     await setJSON(SUPER_ANNOUNCEMENTS_KEY, customList, true);
-    void pushContent("super_ann", [updatedAnnouncement]);
     return { success: true, announcement: updatedAnnouncement };
   } catch (err) {
     console.error("Failed to update announcement:", err);
@@ -318,7 +311,6 @@ export async function deleteSuperAnnouncement(
     const customList = (await getJSON<SuperAnnouncement[]>(SUPER_ANNOUNCEMENTS_KEY, true)) || [];
     const updatedCustom = customList.filter((a: SuperAnnouncement) => a.id !== id);
     await setJSON(SUPER_ANNOUNCEMENTS_KEY, updatedCustom, true);
-    void deleteContent("super_ann", id);
 
     const deletedIds = await getDeletedSuperAnnouncementIds();
     if (!deletedIds.includes(id)) {
@@ -339,10 +331,7 @@ export async function deleteSuperAnnouncement(
 
 export async function getAllAnnouncements(): Promise<HomepageAnnouncement[]> {
   try {
-    const list = mergeById(
-      (await getJSON<HomepageAnnouncement[]>(HOMEPAGE_ANNOUNCEMENTS_KEY, true)) || [],
-      await loadContentKind<HomepageAnnouncement>("home_ann"),
-    );
+    const list = (await getJSON<HomepageAnnouncement[]>(HOMEPAGE_ANNOUNCEMENTS_KEY, true)) || [];
     if (list.length === 0) return [];
     return list.sort((a: HomepageAnnouncement, b: HomepageAnnouncement) => b.createdAt - a.createdAt);
   } catch (err) {
@@ -370,13 +359,6 @@ export async function getActiveAnnouncementForUser(
       if (ann.targetBranches && !ann.targetBranches.includes("all")) {
         if (!user) continue;
         if (!ann.targetBranches.includes(user.branch)) continue;
-      }
-
-      const dismissedKey = `dismissed_ann_${ann.id}`;
-      if (typeof window !== "undefined" && window.localStorage) {
-        if (localStorage.getItem(dismissedKey) === "permanent") {
-          continue;
-        }
       }
 
       return ann;
@@ -409,7 +391,6 @@ export async function createAnnouncement(
 
     const updated = [newAnn, ...all.map((a) => ({ ...a, isActive: false }))];
     await setJSON(HOMEPAGE_ANNOUNCEMENTS_KEY, updated, true);
-    void pushContent("home_ann", updated);
     return { success: true, announcement: newAnn };
   } catch (err) {
     console.error("Failed to create homepage announcement:", err);
@@ -422,7 +403,6 @@ export async function deleteAnnouncement(id: string): Promise<boolean> {
     const all = await getAllAnnouncements();
     const filtered = all.filter((a) => a.id !== id);
     await setJSON(HOMEPAGE_ANNOUNCEMENTS_KEY, filtered, true);
-    void deleteContent("home_ann", id);
     return true;
   } catch {
     return false;
@@ -434,7 +414,6 @@ export async function toggleAnnouncementActive(id: string, active: boolean): Pro
     const all = await getAllAnnouncements();
     const updated = all.map((a) => (a.id === id ? { ...a, isActive: active } : a));
     await setJSON(HOMEPAGE_ANNOUNCEMENTS_KEY, updated, true);
-    void pushContent("home_ann", updated.filter((a) => a.id === id));
     return true;
   } catch {
     return false;
@@ -442,7 +421,5 @@ export async function toggleAnnouncementActive(id: string, active: boolean): Pro
 }
 
 export function dismissAnnouncementPermanently(announcementId: string) {
-  if (typeof window !== "undefined" && window.localStorage) {
-    localStorage.setItem(`dismissed_ann_${announcementId}`, "permanent");
-  }
+  void announcementId;
 }

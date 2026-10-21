@@ -20,7 +20,6 @@ import {
 } from "lucide-react";
 import { Account, LangKey } from "../types";
 import { COLORS, GRAD, colorFor, BRANCHES, T } from "../constants";
-import { getUserAvatarUrl, formatUserDisplayName } from "../data/userProfilesCache";
 
 export function Spinner({ size = 18, color = COLORS.chalk }: { size?: number; color?: string }) {
   return <Loader2 size={size} color={color} className="animate-spin" />;
@@ -488,7 +487,7 @@ export function Avatar({
   colorSeed?: string;
   size?: number;
 }) {
-  const activeSrc = src || getUserAvatarUrl(username || displayName || name);
+  const activeSrc = src || null;
   if (activeSrc) {
     return (
       <img
@@ -498,7 +497,7 @@ export function Avatar({
       />
     );
   }
-  const label = displayName || (username ? formatUserDisplayName(username) : null) || name || "?";
+  const label = displayName || (username || null) || name || "?";
   const c = colorFor(colorSeed || label);
   return (
     <div
