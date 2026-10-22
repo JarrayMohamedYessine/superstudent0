@@ -282,31 +282,17 @@ export function AdminScreen({
   }
 
   async function loadTelegramAndModerationStatus() {
-    setLoadingTgStatus(true);
-    try {
-      const [tgRes, modRes] = await Promise.all([
-        fetch("/api/telegram/status").then((r) => (r.ok ? r.json() : null)),
-        fetch("/api/moderation/status").then((r) => (r.ok ? r.json() : null)),
-      ]);
-      if (tgRes) setTelegramStatus(tgRes);
-      if (modRes) setModerationStatus(modRes);
-    } catch (err) {
-      console.error("Error loading telegram / moderation status:", err);
-    } finally {
-      setLoadingTgStatus(false);
-    }
+    // Server status removed: no cloud service is contacted; the panels stay empty.
+    setTelegramStatus(null);
+    setModerationStatus(null);
+    setLoadingTgStatus(false);
   }
 
   async function handleTriggerCleanup() {
     setCleaningCache(true);
     setCleanupMessage(null);
     try {
-      const res = await fetch("/api/storage/cleanup", { method: "POST" });
-      const data = await res.json();
-      if (data.message) setCleanupMessage(data.message);
-      await loadTelegramAndModerationStatus();
-    } catch {
-      setCleanupMessage("فشل إجراء التنظيف");
+      setCleanupMessage("لا يوجد تخزين خارجي في هذا الإصدار: لا يوجد ما يمكن تنظيفه.");
     } finally {
       setCleaningCache(false);
     }
@@ -315,40 +301,14 @@ export function AdminScreen({
   async function handleManualBanSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!manualBanInput.trim()) return;
-    try {
-      const isIp = /^[0-9\.:]+$/.test(manualBanInput.trim());
-      await fetch("/api/moderation/ban", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId: isIp ? undefined : manualBanInput.trim(),
-          ip: isIp ? manualBanInput.trim() : undefined,
-          reason: manualBanReason.trim() || "Banned manually from admin dashboard",
-        }),
-      });
-      setManualBanInput("");
-      setManualBanReason("");
-      await loadTelegramAndModerationStatus();
-    } catch (err) {
-      console.error("Manual ban error:", err);
-    }
+    // Server-side moderation removed: the action does nothing and contacts no service.
+    setManualBanInput("");
+    setManualBanReason("");
   }
 
   async function handleManualUnban(id: string) {
-    try {
-      const isIp = /^[0-9\.:]+$/.test(id);
-      await fetch("/api/moderation/unban", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId: isIp ? undefined : id,
-          ip: isIp ? id : undefined,
-        }),
-      });
-      await loadTelegramAndModerationStatus();
-    } catch (err) {
-      console.error("Manual unban error:", err);
-    }
+    void id;
+    // Server-side moderation removed: the action does nothing and contacts no service.
   }
 
   // Admin FAQ State
@@ -1198,7 +1158,7 @@ export function AdminScreen({
                           }}
                           className="bac-btn rounded-xl px-3 py-2 text-xs font-bold cursor-pointer bg-purple-500/20 text-purple-300 border border-purple-500/30"
                         >
-                          {result.role === "superadmin" ? "إلغاء المشرف الأعلى" : "تعيين مشرف أعلى / مالك"}
+                          {result.role === "superadmin" ? "إزالة صلاحية الإدارة" : "تعيين الإدارة / مالك"}
                         </button>
                       )}
 
@@ -1310,7 +1270,7 @@ export function AdminScreen({
                         </div>
                         {u.role === "superadmin" && (
                           <Chip color={COLORS.gold} bg="rgba(251,191,36,.16)">
-                            {lang === "ar" ? "👑 المالك والمشرف الأعلى" : "SuperAdmin"}
+                            {lang === "ar" ? "👑 المالك والإدارة" : "Administration"}
                           </Chip>
                         )}
                         {((u.role as string) === "teacher" || u.role === "moderator") && u.role !== "superadmin" && (
@@ -1348,7 +1308,7 @@ export function AdminScreen({
               <div>
                 <h3 className="text-sm font-bold text-white flex items-center gap-2">
                   <MessageSquareHeart size={18} className="text-amber-400" />
-                  <span>{lang === "ar" ? "تقييمات وملاحظات التلاميذ (المشرف الأعلى)" : "Évaluations et Avis des Élèves"}</span>
+                  <span>{lang === "ar" ? "تقييمات وملاحظات التلاميذ (الإدارة)" : "Évaluations et Avis des Élèves"}</span>
                 </h3>
                 <p className="text-xs text-slate-400 mt-0.5">
                   {lang === "ar"
@@ -1872,7 +1832,7 @@ export function AdminScreen({
                 </div>
                 <p className="text-xs text-slate-400 mt-0.5">
                   {lang === "ar"
-                    ? "رسائل المشرف الأعلى التي تظهر في الصفحة الرئيسية مع اختيار الفئة المستهدفة، الشعب، والمدة (12 - 72 ساعة)."
+                    ? "رسائل الإدارة التي تظهر في الصفحة الرئيسية مع اختيار الفئة المستهدفة، الشعب، والمدة (12 - 72 ساعة)."
                     : lang === "fr" ? "Annonces ciblées par rôle et filière, visibles de 12 à 72 heures." : "Announcements targeted by role and study track, visible for 12–72 hours."}
                 </p>
               </div>

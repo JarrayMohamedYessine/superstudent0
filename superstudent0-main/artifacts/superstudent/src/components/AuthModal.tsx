@@ -30,6 +30,9 @@ export function AuthModal({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    // Sign-in / account creation disabled: nothing is stored anywhere.
+    setError("تم تعطيل تسجيل الدخول وإنشاء الحسابات في هذا الإصدار.");
+    return;
     if (!email || !password) {
       setError("الرجاء إدخال البريد الإلكتروني وكلمة المرور");
       return;
@@ -52,7 +55,6 @@ export function AuthModal({
       createdAt: Date.now(),
     };
 
-    localStorage.setItem("super_student_auth", JSON.stringify(user));
     onAuthSuccess(user);
     onClose();
   };

@@ -90,7 +90,7 @@ export function DirectContactModal({
                 {lang === "ar" ? "التواصل مع الإدارة" : lang === "fr" ? "Contacter l’administration" : "Contact the team"}
               </h3>
               <p className="text-xs text-slate-400">
-                {lang === "ar" ? "تصل رسالتك فوراً للوحة المشرف الأعلى والبريد الرسمي" : "Votre message est transmis directement au Super Admin"}
+                {lang === "ar" ? "تصل رسالتك فوراً للوحة الإدارة والبريد الرسمي" : "Votre message est transmis directement au Super Admin"}
               </p>
             </div>
           </div>

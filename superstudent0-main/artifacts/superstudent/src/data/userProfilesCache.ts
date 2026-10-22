@@ -7,6 +7,7 @@
  */
 
 import { Account, UserRole } from "../types";
+import { OWNER_EMAIL } from "../constants";
 
 export interface CachedUserProfile {
   email: string;
@@ -27,10 +28,10 @@ export interface CachedUserProfile {
  * Pre-seeded frequently used user profiles stored directly inside the website file structure.
  */
 export const STATIC_USER_PROFILES: Record<string, CachedUserProfile> = {
-  "learningmyj20@gmail.com": {
-    email: "learningmyj20@gmail.com",
+  [OWNER_EMAIL]: {
+    email: OWNER_EMAIL,
     username: "superstudent_admin",
-    displayName: "الأستاذ مهدي — المشرف الأعلى",
+    displayName: "الإدارة",
     branch: "math",
     gradeLevel: "4eme_bac",
     role: "superadmin",
@@ -93,37 +94,19 @@ export const STATIC_USER_PROFILES: Record<string, CachedUserProfile> = {
   },
 };
 
-const LOCAL_PROFILES_STORAGE_KEY = "superstudent_local_user_profiles_v2";
-
 /**
- * In-memory runtime cache for lightning-fast synchronous access.
+ * In-memory runtime cache for lightning-fast synchronous access (session only).
  */
 let inMemoryProfilesCache: Map<string, CachedUserProfile> | null = null;
 
 function initializeInMemoryCache(): Map<string, CachedUserProfile> {
   const map = new Map<string, CachedUserProfile>();
 
-  // 1. Load static pre-seeded profiles
+  // Static pre-seeded profiles (bundled UI content, no user data)
   Object.values(STATIC_USER_PROFILES).forEach((profile) => {
     map.set(profile.email.toLowerCase(), profile);
     map.set(profile.username.toLowerCase(), profile);
   });
-
-  // 2. Load dynamic local profiles from browser storage
-  if (typeof localStorage !== "undefined") {
-    try {
-      const raw = localStorage.getItem(LOCAL_PROFILES_STORAGE_KEY);
-      if (raw) {
-        const storedList: CachedUserProfile[] = JSON.parse(raw);
-        storedList.forEach((profile) => {
-          if (profile.email) map.set(profile.email.toLowerCase(), profile);
-          if (profile.username) map.set(profile.username.toLowerCase(), profile);
-        });
-      }
-    } catch (err) {
-      console.warn("Failed to load local user profiles storage:", err);
-    }
-  }
 
   inMemoryProfilesCache = map;
   return map;
@@ -137,15 +120,7 @@ function getProfilesMap(): Map<string, CachedUserProfile> {
 }
 
 function persistProfilesToStorage(): void {
-  if (!inMemoryProfilesCache || typeof localStorage === "undefined") return;
-  try {
-    const uniqueProfiles = Array.from(inMemoryProfilesCache.values()).filter(
-      (profile, idx, self) => self.findIndex((p) => p.email.toLowerCase() === profile.email.toLowerCase()) === idx
-    );
-    localStorage.setItem(LOCAL_PROFILES_STORAGE_KEY, JSON.stringify(uniqueProfiles));
-  } catch (err) {
-    console.warn("Storage quota warning while persisting local user profiles:", err);
-  }
+  // Memory only: nothing is persisted anywhere.
 }
 
 /**

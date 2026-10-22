@@ -123,29 +123,6 @@ export async function getAccountByAccessCode(code: string): Promise<Account | nu
 export async function saveAccount(account: Account): Promise<boolean> {
   const emailNorm = normEmail(account.email);
 
-  if (typeof localStorage !== "undefined") {
-    const existingOwner = localStorage.getItem("superstudent_primary_owner_email");
-    if (!existingOwner) {
-      const accountKeys = await listKeys("account:");
-      if (!accountKeys || accountKeys.length === 0) {
-        localStorage.setItem("superstudent_primary_owner_email", emailNorm);
-        account.role = "superadmin";
-        account.canUpload = true;
-      } else {
-        const firstKey = accountKeys[0];
-        const firstEmail = firstKey.replace("account:", "").trim().toLowerCase();
-        localStorage.setItem("superstudent_primary_owner_email", firstEmail);
-        if (firstEmail === emailNorm) {
-          account.role = "superadmin";
-          account.canUpload = true;
-        }
-      }
-    } else if (existingOwner.trim().toLowerCase() === emailNorm) {
-      account.role = "superadmin";
-      account.canUpload = true;
-    }
-  }
-
   const kvOk = await setJSON("account:" + emailNorm, account, true);
   await setJSON("usernameIndex:" + account.username.toLowerCase(), { email: emailNorm }, true);
   if (account.accessCode) {
@@ -223,20 +200,6 @@ export async function banUserRPC(targetEmail: string, durationMs: number | null)
       // ignore
     }
 
-    // Sync with server in-memory blacklist
-    try {
-      await fetch("/api/moderation/ban", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId: acc.username || acc.email,
-          reason: "Banned by administrator",
-        }),
-      });
-    } catch {
-      // ignore
-    }
-
     return { success: true };
   }
   return { success: false, error: "Account not found" };
@@ -248,19 +211,6 @@ export async function unbanUserRPC(targetEmail: string): Promise<{ success: bool
     const updated: Account = { ...acc, banned: false, bannedUntil: null };
     await setJSON("account:" + normEmail(targetEmail), updated, true);
     void syncAdminUser(targetEmail, { banned: false, bannedUntil: null });
-
-    // Sync unban with server in-memory blacklist
-    try {
-      await fetch("/api/moderation/unban", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId: acc.username || acc.email,
-        }),
-      });
-    } catch {
-      // ignore
-    }
 
     return { success: true };
   }
@@ -342,7 +292,7 @@ export async function deleteUserAccountRPC(targetEmail: string): Promise<{ succe
     }
   }
 
-  // 4. Evict profile from memory cache and localStorage
+  // 4. Evict profile from memory cache
   try {
     const { evictUserProfileCache } = await import("../data/userProfilesCache");
     evictUserProfileCache(norm);
@@ -363,35 +313,10 @@ export async function uploadFileToCloudStorage(
   fileName: string,
   folder: "pdfs" | "images" | "avatars" = "images"
 ): Promise<string | null> {
-  if (!dataUrl || !dataUrl.startsWith("data:")) return dataUrl || null;
-
-  // Try worker persistent endpoint
-  try {
-    let res: Response;
-    if (dataUrl.length > 2_000_000) {
-      // Large file: send it as multipart (the Worker streams it straight to Catbox).
-      const blob = await (await fetch(dataUrl)).blob();
-      const fd = new FormData();
-      fd.append("reqtype", "fileupload");
-      fd.append("fileToUpload", blob, fileName);
-      res = await fetch(`/api/storage/upload?folder=${folder}`, { method: "POST", body: fd });
-    } else {
-      res = await fetch("/api/storage/upload", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ dataUrl, fileName, folder }),
-      });
-    }
-    if (res.ok) {
-      const data = await res.json();
-      if (data.success && data.url) {
-        return data.url;
-      }
-    }
-  } catch {
-    // Return dataUrl as fallback
-  }
-
+  // External storage removed: the file stays exactly where it is (in memory), nothing is uploaded.
+  void fileName;
+  void folder;
+  if (!dataUrl) return null;
   return dataUrl;
 }
 
@@ -414,146 +339,29 @@ export async function uploadAvatarToStorage(dataUrl: string, userUidOrUsername: 
   }
 }
 
-// ━━━━━━━━━━━━━━━━━━━━ STORAGE & CACHE HELPERS (INDEXED_DB + MEMORY + LOCALSTORAGE) ━━━━━━━━━━━━━━━━━━━━
+// ━━━━━━━━━━━━━━━━━━━━ STORAGE & CACHE HELPERS (MEMORY ONLY) ━━━━━━━━━━━━━━━━━━━━
+// Data is kept in memory for the current page session only: nothing is written to
+// localStorage, IndexedDB, or any server. Everything clears when the page closes.
 
 const memoryStore = new Map<string, unknown>();
-let idbPromise: Promise<IDBDatabase | null> | null = null;
-
-function getIDB(): Promise<IDBDatabase | null> {
-  if (typeof indexedDB === "undefined") return Promise.resolve(null);
-  if (!idbPromise) {
-    idbPromise = new Promise((resolve) => {
-      try {
-        const req = indexedDB.open("superstudent_db_v2", 1);
-        req.onupgradeneeded = () => {
-          const db = req.result;
-          if (!db.objectStoreNames.contains("keyval")) {
-            db.createObjectStore("keyval");
-          }
-        };
-        req.onsuccess = () => resolve(req.result);
-        req.onerror = () => resolve(null);
-      } catch {
-        resolve(null);
-      }
-    });
-  }
-  return idbPromise;
-}
 
 export async function getJSON<T = unknown>(key: string, shared = false): Promise<T | null> {
   const fullKey = (shared ? "bac_shared:" : "bac:") + key;
-
-  // 1. Check memory store
   if (memoryStore.has(fullKey)) {
     return memoryStore.get(fullKey) as T;
   }
-
-  // 2. Check IndexedDB (primary storage for large files & datasets)
-  try {
-    const db = await getIDB();
-    if (db) {
-      const val = await new Promise<T | null>((resolve) => {
-        try {
-          const tx = db.transaction("keyval", "readonly");
-          const store = tx.objectStore("keyval");
-          const req = store.get(fullKey);
-          req.onsuccess = () => resolve((req.result as T) ?? null);
-          req.onerror = () => resolve(null);
-        } catch {
-          resolve(null);
-        }
-      });
-      if (val !== null && val !== undefined) {
-        memoryStore.set(fullKey, val);
-        return val;
-      }
-    }
-  } catch {
-    // fallback
-  }
-
-  // 3. Check localStorage
-  try {
-    const v = localStorage.getItem(fullKey);
-    if (v) {
-      const parsed = JSON.parse(v) as T;
-      memoryStore.set(fullKey, parsed);
-      return parsed;
-    }
-  } catch {
-    // ignore
-  }
-
   return null;
 }
 
 export async function setJSON(key: string, value: unknown, shared = false): Promise<boolean> {
   const fullKey = (shared ? "bac_shared:" : "bac:") + key;
-
-  // 1. Update memory store
   memoryStore.set(fullKey, value);
-
-  // 2. Persist to IndexedDB (handles large PDFs without quota limits)
-  try {
-    const db = await getIDB();
-    if (db) {
-      await new Promise<boolean>((resolve) => {
-        try {
-          const tx = db.transaction("keyval", "readwrite");
-          const store = tx.objectStore("keyval");
-          const req = store.put(value, fullKey);
-          req.onsuccess = () => resolve(true);
-          req.onerror = () => resolve(false);
-        } catch {
-          resolve(false);
-        }
-      });
-    }
-  } catch {
-    // ignore
-  }
-
-  // 3. Best-effort mirror to localStorage for small payloads (< 500KB)
-  try {
-    const serialized = JSON.stringify(value);
-    if (serialized.length < 500000) {
-      localStorage.setItem(fullKey, serialized);
-    }
-  } catch {
-    // Safe ignore: IndexedDB already stored the full payload safely!
-  }
-
   return true;
 }
 
 export async function delKey(key: string, shared = false): Promise<void> {
   const fullKey = (shared ? "bac_shared:" : "bac:") + key;
   memoryStore.delete(fullKey);
-
-  try {
-    const db = await getIDB();
-    if (db) {
-      await new Promise<void>((resolve) => {
-        try {
-          const tx = db.transaction("keyval", "readwrite");
-          tx.objectStore("keyval").delete(fullKey);
-          tx.oncomplete = () => resolve();
-          tx.onerror = () => resolve();
-        } catch {
-          resolve();
-        }
-      });
-    }
-  } catch {
-    // ignore
-  }
-
-  try {
-    localStorage.removeItem(fullKey);
-  } catch {
-    // ignore
-  }
 }
 
 export async function listKeys(prefix: string, shared = false): Promise<string[]> {
@@ -561,50 +369,10 @@ export async function listKeys(prefix: string, shared = false): Promise<string[]
   const targetPrefix = storagePrefix + prefix;
   const out = new Set<string>();
 
-  // 1. Memory keys
   for (const k of memoryStore.keys()) {
     if (k.startsWith(targetPrefix)) {
       out.add(k.slice(storagePrefix.length));
     }
-  }
-
-  // 2. LocalStorage keys
-  try {
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i);
-      if (k && k.startsWith(targetPrefix)) {
-        out.add(k.slice(storagePrefix.length));
-      }
-    }
-  } catch {
-    // ignore
-  }
-
-  // 3. IndexedDB keys
-  try {
-    const db = await getIDB();
-    if (db) {
-      await new Promise<void>((resolve) => {
-        try {
-          const tx = db.transaction("keyval", "readonly");
-          const req = tx.objectStore("keyval").getAllKeys();
-          req.onsuccess = () => {
-            const keys = (req.result as string[]) || [];
-            keys.forEach((k) => {
-              if (typeof k === "string" && k.startsWith(targetPrefix)) {
-                out.add(k.slice(storagePrefix.length));
-              }
-            });
-            resolve();
-          };
-          req.onerror = () => resolve();
-        } catch {
-          resolve();
-        }
-      });
-    }
-  } catch {
-    // ignore
   }
 
   return Array.from(out);

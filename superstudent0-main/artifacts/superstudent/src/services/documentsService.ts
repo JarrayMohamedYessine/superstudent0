@@ -23,13 +23,13 @@ export async function getAllBacDocuments(): Promise<BacDocumentItem[]> {
   try {
     const deletedIds = new Set(await getDeletedDocIds());
     
-    // 1. Fetch shared documents from Edge CDN / Worker repository (Tier 1 & Tier 2 cache)
+    // 1. Fetch shared documents from the in-memory store
     // Static store first (free, no Worker call); the old /api/documents call stays as fallback.
     const storeDocs = await loadStoreCollection<BacDocumentItem>("archive-bank");
     const remoteSharedDocs =
       storeDocs !== null ? storeDocs : await fetchWithSWR<BacDocumentItem[]>("/api/documents", []);
     
-    // 2. Fetch local custom documents (IndexedDB / localStorage cache)
+    // 2. Fetch local custom documents (in-memory store)
     const customDocs = (await getJSON<BacDocumentItem[]>(VAULT_KEY, true)) || [];
     
     // 3. Merge: remote shared + local custom + initial dataset, deduplicating by ID and excluding deleted
@@ -73,7 +73,7 @@ export async function publishBacDocument(
   if (!canUserPublishDocuments(user)) {
     return {
       success: false,
-      error: "عذرًا، النشر في بنك الوثائق متاح فقط للمشرفين والمشرف الأعلى والتلاميذ المتميزين.",
+      error: "عذرًا، النشر في بنك الوثائق متاح فقط للمشرفين والإدارة والتلاميذ المتميزين.",
     };
   }
 
@@ -94,16 +94,7 @@ export async function publishBacDocument(
     customDocs.unshift(newDoc);
     await setJSON(VAULT_KEY, customDocs, true);
 
-    // 1. Broadcast to Edge Repository so all students globally see the document
-    try {
-      fetch("/api/documents", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newDoc),
-      }).catch(() => {});
-    } catch {
-      // non-blocking
-    }
+    // 1. Broadcast removed: documents stay on this device only (memory).
 
     // 2. Cache PDF in W3C Cache Storage API for instant offline zero-latency access
     if (newDoc.pdfDataUrl) {

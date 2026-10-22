@@ -19,7 +19,7 @@ import {
   Check,
 } from "lucide-react";
 import { Account, LangKey } from "../types";
-import { COLORS, GRAD, colorFor, BRANCHES, T } from "../constants";
+import { COLORS, GRAD, colorFor, BRANCHES, T, isOwnerEmail } from "../constants";
 import { getUserAvatarUrl, formatUserDisplayName } from "../data/userProfilesCache";
 
 export function Spinner({ size = 18, color = COLORS.chalk }: { size?: number; color?: string }) {
@@ -678,12 +678,12 @@ export function TopBar({
             <span className="text-xs text-slate-200 font-bold whitespace-nowrap">{user.displayName}</span>
 
             {(() => {
-              const isOwner = user.role === "superadmin" || user.email === "learningmyj20@gmail.com";
+              const isOwner = user.role === "superadmin" || isOwnerEmail(user.email);
               const isTeacher = user.role === "teacher";
               if (isOwner) {
                 return (
                   <span className="px-2.5 py-0.5 rounded-lg text-[10px] font-black bg-purple-500/20 text-purple-300 border border-purple-500/40 whitespace-nowrap">
-                    👑 {lang === "ar" ? "مشرف" : "SuperAdmin"}
+                    👑 {lang === "ar" ? "الإدارة" : "Administration"}
                   </span>
                 );
               }

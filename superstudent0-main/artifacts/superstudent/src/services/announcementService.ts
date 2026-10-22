@@ -1,4 +1,5 @@
 import { Account, HomepageAnnouncement, LangKey, SuperAnnouncement, AnnouncementType, UserRole } from "../types";
+import { isOwnerEmail } from "../constants";
 import { getJSON, setJSON } from "./dataService";
 import { deleteContent, mergeById, pushContent } from "./cloudRequests";
 import { loadContentKind } from "./cloudStore";
@@ -14,7 +15,7 @@ const DELETED_SUPER_ANNOUNCEMENTS_KEY = "superstudent_premium_announcements_dele
 
 export function isUserOwner(user: Account | null): boolean {
   if (!user) return false;
-  return user.role === "superadmin" || user.email === "learningmyj20@gmail.com";
+  return user.role === "superadmin" || isOwnerEmail(user.email);
 }
 
 export function isUserTeacher(user: Account | null): boolean {
@@ -373,10 +374,8 @@ export async function getActiveAnnouncementForUser(
       }
 
       const dismissedKey = `dismissed_ann_${ann.id}`;
-      if (typeof window !== "undefined" && window.localStorage) {
-        if (localStorage.getItem(dismissedKey) === "permanent") {
-          continue;
-        }
+      if (memoryDismissedAnnouncements.has(dismissedKey)) {
+        continue;
       }
 
       return ann;
@@ -441,8 +440,9 @@ export async function toggleAnnouncementActive(id: string, active: boolean): Pro
   }
 }
 
+/** Session-only dismissal: kept in memory, nothing is stored on the device. */
+const memoryDismissedAnnouncements = new Set<string>();
+
 export function dismissAnnouncementPermanently(announcementId: string) {
-  if (typeof window !== "undefined" && window.localStorage) {
-    localStorage.setItem(`dismissed_ann_${announcementId}`, "permanent");
-  }
+  memoryDismissedAnnouncements.add(`dismissed_ann_${announcementId}`);
 }

@@ -1057,7 +1057,7 @@ export function SuperAnnouncementModal({
                   )}
                   {user.role === "superadmin" && (
                     <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-purple-500/20 text-purple-300 border border-purple-500/40">
-                      👑 المشرف الأعلى
+                      👑 الإدارة
                     </span>
                   )}
                   {(!user.role || user.role === "member") && (

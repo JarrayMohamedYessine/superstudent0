@@ -17,7 +17,7 @@ import {
   Archive,
 } from "lucide-react";
 import { Account, GradeLevel, LangKey, RoomItem, UserRole, BacDocumentItem } from "./types";
-import { COLORS, GRAD, PRESENCE_WINDOW_MS, isAccountBanned, BRANCHES, T } from "./constants";
+import { COLORS, GRAD, PRESENCE_WINDOW_MS, isAccountBanned, BRANCHES, T, isOwnerEmail } from "./constants";
 import { getJSON, setJSON, delKey, normEmail, getAccountByEmail, getEliteApplications } from "./services/dataService";
 import { getMeApi, setStoredToken } from "./services/authClient";
 import { Logo } from "./components/Atoms";
@@ -139,7 +139,7 @@ export default function App() {
 
   const effectiveUser = useMemo<Account | null>(() => {
     if (!user) return null;
-    const isOwner = user.role === "superadmin" || user.email === "learningmyj20@gmail.com";
+    const isOwner = user.role === "superadmin" || isOwnerEmail(user.email);
     if (!isOwner) return user;
     if (impersonatedRole === "guest") return null;
     if (impersonatedRole) {
@@ -337,7 +337,7 @@ export default function App() {
 
   const showBottomNav = true;
 
-  const isOwner = effectiveUser?.role === "superadmin" || effectiveUser?.email === "learningmyj20@gmail.com";
+  const isOwner = effectiveUser?.role === "superadmin" || isOwnerEmail(effectiveUser?.email);
   const isTeacher = effectiveUser?.role === "teacher";
   const isOwnerOrTeacher = isOwner || isTeacher;
 
@@ -393,7 +393,7 @@ export default function App() {
               onClick={() => setImpersonatedRole(null)}
               className="px-3 py-1 bg-black/40 hover:bg-black/70 rounded-xl text-[11px] font-black border border-white/30 text-amber-300 hover:text-white cursor-pointer transition-all shadow"
             >
-              {lang === "ar" ? "العودة لوضع المالك (SuperAdmin) 👑" : "Quitter la simulation"}
+              {lang === "ar" ? "العودة لوضع المالك (الإدارة) 👑" : "Quitter la simulation"}
             </button>
           </div>
         </div>
