@@ -94,16 +94,7 @@ export async function publishBacDocument(
     customDocs.unshift(newDoc);
     await setJSON(VAULT_KEY, customDocs, true);
 
-    // 1. Broadcast to Edge Repository so all students globally see the document
-    try {
-      fetch("/api/documents", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newDoc),
-      }).catch(() => {});
-    } catch {
-      // non-blocking
-    }
+    // 1. Broadcast removed: documents stay on this device only (memory).
 
     // 2. Cache PDF in W3C Cache Storage API for instant offline zero-latency access
     if (newDoc.pdfDataUrl) {

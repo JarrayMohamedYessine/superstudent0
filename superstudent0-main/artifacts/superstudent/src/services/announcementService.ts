@@ -373,10 +373,8 @@ export async function getActiveAnnouncementForUser(
       }
 
       const dismissedKey = `dismissed_ann_${ann.id}`;
-      if (typeof window !== "undefined" && window.localStorage) {
-        if (localStorage.getItem(dismissedKey) === "permanent") {
-          continue;
-        }
+      if (memoryDismissedAnnouncements.has(dismissedKey)) {
+        continue;
       }
 
       return ann;
@@ -441,8 +439,9 @@ export async function toggleAnnouncementActive(id: string, active: boolean): Pro
   }
 }
 
+/** Session-only dismissal: kept in memory, nothing is stored on the device. */
+const memoryDismissedAnnouncements = new Set<string>();
+
 export function dismissAnnouncementPermanently(announcementId: string) {
-  if (typeof window !== "undefined" && window.localStorage) {
-    localStorage.setItem(`dismissed_ann_${announcementId}`, "permanent");
-  }
+  memoryDismissedAnnouncements.add(`dismissed_ann_${announcementId}`);
 }

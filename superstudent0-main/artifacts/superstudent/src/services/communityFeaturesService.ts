@@ -299,20 +299,6 @@ export function getCachedAiResponse(prompt: string, branch = "", subject = ""): 
     return { text: mem.answer, model: mem.model, provider: mem.provider + " (⚡ Cache)" };
   }
 
-  // 2. Check localStorage
-  try {
-    const local = localStorage.getItem("bac_ai_cache_" + key);
-    if (local) {
-      const parsed = JSON.parse(local);
-      if (Date.now() - parsed.timestamp < 1000 * 60 * 60 * 24 * 7) {
-        memoryAiCache.set(key, parsed);
-        return { text: parsed.answer, model: parsed.model, provider: parsed.provider + " (⚡ Cache)" };
-      }
-    }
-  } catch {
-    // ignore
-  }
-
   return null;
 }
 
@@ -322,11 +308,6 @@ export function setCachedAiResponse(prompt: string, branch: string, subject: str
   const data = { answer, model, provider, timestamp: Date.now() };
 
   memoryAiCache.set(key, data);
-  try {
-    localStorage.setItem("bac_ai_cache_" + key, JSON.stringify(data));
-  } catch {
-    // quota exceeded fallback
-  }
 }
 
 export function getCachedAiAnswer(prompt: string, branch = "", subject = ""): string | null {

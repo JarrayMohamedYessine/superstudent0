@@ -674,13 +674,6 @@ export async function isRootOwnerEmail(email?: string | null): Promise<boolean> 
   const norm = email.trim().toLowerCase();
   if (norm === "learningmyj20@gmail.com") return true;
 
-  if (typeof localStorage !== "undefined") {
-    const primaryOwner = localStorage.getItem("superstudent_primary_owner_email");
-    if (primaryOwner && primaryOwner.trim().toLowerCase() === norm) {
-      return true;
-    }
-  }
-
   try {
     const encoder = new TextEncoder();
     const data = encoder.encode(norm);

@@ -282,31 +282,17 @@ export function AdminScreen({
   }
 
   async function loadTelegramAndModerationStatus() {
-    setLoadingTgStatus(true);
-    try {
-      const [tgRes, modRes] = await Promise.all([
-        fetch("/api/telegram/status").then((r) => (r.ok ? r.json() : null)),
-        fetch("/api/moderation/status").then((r) => (r.ok ? r.json() : null)),
-      ]);
-      if (tgRes) setTelegramStatus(tgRes);
-      if (modRes) setModerationStatus(modRes);
-    } catch (err) {
-      console.error("Error loading telegram / moderation status:", err);
-    } finally {
-      setLoadingTgStatus(false);
-    }
+    // Server status removed: no cloud service is contacted; the panels stay empty.
+    setTelegramStatus(null);
+    setModerationStatus(null);
+    setLoadingTgStatus(false);
   }
 
   async function handleTriggerCleanup() {
     setCleaningCache(true);
     setCleanupMessage(null);
     try {
-      const res = await fetch("/api/storage/cleanup", { method: "POST" });
-      const data = await res.json();
-      if (data.message) setCleanupMessage(data.message);
-      await loadTelegramAndModerationStatus();
-    } catch {
-      setCleanupMessage("فشل إجراء التنظيف");
+      setCleanupMessage("لا يوجد تخزين خارجي في هذا الإصدار: لا يوجد ما يمكن تنظيفه.");
     } finally {
       setCleaningCache(false);
     }
@@ -315,40 +301,14 @@ export function AdminScreen({
   async function handleManualBanSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!manualBanInput.trim()) return;
-    try {
-      const isIp = /^[0-9\.:]+$/.test(manualBanInput.trim());
-      await fetch("/api/moderation/ban", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId: isIp ? undefined : manualBanInput.trim(),
-          ip: isIp ? manualBanInput.trim() : undefined,
-          reason: manualBanReason.trim() || "Banned manually from admin dashboard",
-        }),
-      });
-      setManualBanInput("");
-      setManualBanReason("");
-      await loadTelegramAndModerationStatus();
-    } catch (err) {
-      console.error("Manual ban error:", err);
-    }
+    // Server-side moderation removed: the action does nothing and contacts no service.
+    setManualBanInput("");
+    setManualBanReason("");
   }
 
   async function handleManualUnban(id: string) {
-    try {
-      const isIp = /^[0-9\.:]+$/.test(id);
-      await fetch("/api/moderation/unban", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId: isIp ? undefined : id,
-          ip: isIp ? id : undefined,
-        }),
-      });
-      await loadTelegramAndModerationStatus();
-    } catch (err) {
-      console.error("Manual unban error:", err);
-    }
+    void id;
+    // Server-side moderation removed: the action does nothing and contacts no service.
   }
 
   // Admin FAQ State
