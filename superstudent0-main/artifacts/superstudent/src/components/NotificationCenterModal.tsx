@@ -247,7 +247,7 @@ export function NotificationCenterModal({
               <p className="text-xs text-slate-400 mt-0.5">
                 {user.role === "superadmin"
                   ? lang === "ar"
-                    ? "لوحة إشعارات المشرف الأعلى — اعتمادات الوثائق والقرارات الإدارية"
+                    ? "لوحة إشعارات الإدارة — اعتمادات الوثائق والقرارات الإدارية"
                     : lang === "fr" ? "Notifications d’administration et de modération" : "Administrator and moderation notifications"
                   : user.role === "moderator"
                   ? lang === "ar"
@@ -446,7 +446,7 @@ export function NotificationCenterModal({
               </p>
               <p className="text-xs text-slate-500 max-w-sm mx-auto">
                 {lang === "ar"
-                  ? "عندما يقوم المشرف الأعلى باعتماد الوثائق، أو الموافقة على طلبات التميز والحظر ستظهر هنا فوراً."
+                  ? "عندما يقوم الإدارة باعتماد الوثائق، أو الموافقة على طلبات التميز والحظر ستظهر هنا فوراً."
                   : lang === "fr" ? "Les validations de documents et décisions apparaîtront ici." : "Document approvals and administrative updates will appear here."}
               </p>
             </div>

@@ -5,9 +5,16 @@ export const ENV =
     (import.meta as unknown as { env?: Record<string, string> }).env) ||
   {};
 
+// بريد المالك — متغيّر واحد فقط: ضع قيمته هنا (بدون التحقق عبر أول حساب مُنشأ)
+export const OWNER_EMAIL = "x";
+
+export function isOwnerEmail(email?: string | null): boolean {
+  return !!email && email.trim().toLowerCase() === OWNER_EMAIL.trim().toLowerCase();
+}
+
 export const MAX_MESSAGES = 60;
 export const MESSAGE_RETENTION_MS = 5 * 24 * 60 * 60 * 1000; // 5 days retention for room messages
-export const MEDIA_VAULT_RETENTION_MS = 14 * 24 * 60 * 60 * 1000; // 14 days (2 weeks) retention for Super Admin media archive
+export const MEDIA_VAULT_RETENTION_MS = 14 * 24 * 60 * 60 * 1000; // 14 days (2 weeks) retention for Administration media archive
 export const IMG_MAX_DIM = 600;
 export const IMG_QUALITY = 0.6;
 export const AVATAR_DIM = 160;
@@ -295,13 +302,13 @@ export const T = {
     pdfTooBig: "حجم الملف يتجاوز 5 ميغا",
     openFile: "فتح الملف", deleteMsg: "حذف",
     logout: "تسجيل الخروج", admin: "لوحة الإدارة", settings: "الإعدادات", home: "الرئيسية",
-    adminTitle: "لوحة المشرف الأعلى والإشراف", totalUsers: "إجمالي المسجلين", activeNow: "نشط الآن", totalMods: "المشرفون",
+    adminTitle: "لوحة الإدارة والإشراف", totalUsers: "إجمالي المسجلين", activeNow: "نشط الآن", totalMods: "المشرفون",
     searchUser: "ابحث بالبريد أو اسم المستخدم", searchBtn: "بحث", noUserFound: "لم يتم العثور على مستخدم",
     banAction: "حظر الحساب", unbanAction: "رفع الحظر", banned: "محظور",
     banDuration: "مدة الحظر", minutes: "دقائق", hours: "ساعات", forever: "دائم",
     cancel: "إلغاء", confirm: "تأكيد",
     modRoomsTitle: "غرف الإشراف (يقدر يحذف رسائل فيها)", save: "حفظ", saved: "تم الحفظ",
-    you: "أنت", superAdmin: "المشرف الأعلى", moderator: "مسؤول الغرفة", eliteStudent: "تلميذ متميز", member: "تلميذ",
+    you: "أنت", superAdmin: "الإدارة", moderator: "مسؤول الغرفة", eliteStudent: "تلميذ متميز", member: "تلميذ",
     navDocuments: "بنك الوثائق والامتحانات",
     confirmDelete: "تأكيد حذف الرسالة؟", confirmDeleteAccount: "تأكيد حذف الحساب نهائيًا؟", deleteAccount: "حذف الحساب",
     switchToRegister: "ليس لديك حساب؟ أنشئ واحدًا مجانًا", switchToLogin: "لديك حساب بالفعل؟ سجّل دخولك",
@@ -330,8 +337,8 @@ export const T = {
     deleteMsgShort: "حذف", modActions: "أدوات الإشراف", refresh: "تحديث",
     // Special Rooms
     modsOnlyRoomTitle: "غرفة المشرفين الخاصة (Moderators Only)",
-    modsOnlyRoomSub: "فضاء مغلق وخاص لتنسيق الإشراف ومناقشة المحتوى بين المشرفين والمشرف الأعلى",
-    adminModChannelTitle: "القناة المباشرة مع المشرف الأعلى",
+    modsOnlyRoomSub: "فضاء مغلق وخاص لتنسيق الإشراف ومناقشة المحتوى بين المشرفين والإدارة",
+    adminModChannelTitle: "القناة المباشرة مع الإدارة",
     adminModChannelSub: "تواصل خاص ومباشر بين المشرفين والإدارة العليا للمنصة",
     // AI Hub
     aiTitle: "المساعد الأكاديمي الذكي SuperStudent AI",
@@ -441,7 +448,7 @@ export const T = {
     banDuration: "Durée du bannissement", minutes: "minutes", hours: "heures", forever: "Définitif",
     cancel: "Annuler", confirm: "Confirmer",
     modRoomsTitle: "Salons modérés", save: "Enregistrer", saved: "Enregistré",
-    you: "Vous", superAdmin: "Super Administrateur", moderator: "Modérateur", eliteStudent: "Élève Élite (Contributeur)", member: "Élève",
+    you: "Vous", superAdmin: "Administration", moderator: "Modérateur", eliteStudent: "Élève Élite (Contributeur)", member: "Élève",
     navDocuments: "Sujets & Archives",
     confirmDelete: "Supprimer ce message ?", confirmDeleteAccount: "Supprimer définitivement ce compte ?", deleteAccount: "Supprimer le compte",
     switchToRegister: "Pas de compte ? Inscrivez-vous gratuitement", switchToLogin: "Déjà un compte ? Connectez-vous",
@@ -469,8 +476,8 @@ export const T = {
     ban5: "5 min", ban30: "30 min", ban1h: "1 h", ban6h: "6 h", ban24h: "24 h", banForever: "Définitif",
     deleteMsgShort: "Supprimer", modActions: "Outils de modération", refresh: "Actualiser",
     modsOnlyRoomTitle: "Salon privé des Modérateurs",
-    modsOnlyRoomSub: "Espace réservé à l'équipe de modération et au Super Admin",
-    adminModChannelTitle: "Canal direct Super Admin ↔ Modérateurs",
+    modsOnlyRoomSub: "Espace réservé à l'équipe de modération et au Administration",
+    adminModChannelTitle: "Canal direct Administration ↔ Modérateurs",
     adminModChannelSub: "Communication directe et prioritaire avec la direction",
     aiTitle: "Tuteur IA Académique SuperStudent AI",
     aiSubtitle: "Résolution étape par étape, notation sur 20, aide aux dissertations et générateur de quiz",
@@ -514,7 +521,7 @@ export const T = {
     surveySubmit: "Envoyer l'évaluation",
     surveyThanks: "Merci pour vos retours précieux !",
     mfaTitle: "Authentification à deux facteurs (2FA)",
-    mfaDesc: "Protection renforcée pour les comptes modérateurs et super admin.",
+    mfaDesc: "Protection renforcée pour les comptes modérateurs et l'Administration.",
     mfaEnable: "Activer la 2FA",
     mfaDisable: "Désactiver la 2FA",
   },
@@ -567,13 +574,13 @@ export const T = {
     pdfTooBig: "File exceeds 5 MB",
     openFile: "Open file", deleteMsg: "Delete",
     logout: "Log out", admin: "Admin panel", settings: "Settings", home: "Home",
-    adminTitle: "Super Admin & Moderation Panel", totalUsers: "Total registered", activeNow: "Active now", totalMods: "Moderators",
+    adminTitle: "Administration & Moderation Panel", totalUsers: "Total registered", activeNow: "Active now", totalMods: "Moderators",
     searchUser: "Search by email or username", searchBtn: "Search", noUserFound: "No user found",
     banAction: "Ban", unbanAction: "Unban", banned: "Banned",
     banDuration: "Ban duration", minutes: "minutes", hours: "hours", forever: "Permanent",
     cancel: "Cancel", confirm: "Confirm",
     modRoomsTitle: "Moderated rooms", save: "Save", saved: "Saved",
-    you: "You", superAdmin: "Super Admin", moderator: "Moderator", eliteStudent: "Elite Student (Contributor)", member: "Student",
+    you: "You", superAdmin: "Administration", moderator: "Moderator", eliteStudent: "Elite Student (Contributor)", member: "Student",
     navDocuments: "Subjects & Archive Bank",
     confirmDelete: "Delete this message?", confirmDeleteAccount: "Delete this account permanently?", deleteAccount: "Delete account",
     switchToRegister: "No account? Create one for free", switchToLogin: "Have an account? Sign in",
@@ -601,8 +608,8 @@ export const T = {
     ban5: "5 min", ban30: "30 min", ban1h: "1 h", ban6h: "6 h", ban24h: "24 h", banForever: "Permanent",
     deleteMsgShort: "Delete", modActions: "Moderation tools", refresh: "Refresh",
     modsOnlyRoomTitle: "Private Moderators Room",
-    modsOnlyRoomSub: "Restricted channel for moderators and Super Admin collaboration",
-    adminModChannelTitle: "Direct Super Admin ↔ Moderators Channel",
+    modsOnlyRoomSub: "Restricted channel for moderators and Administration collaboration",
+    adminModChannelTitle: "Direct Administration ↔ Moderators Channel",
     adminModChannelSub: "Direct prioritized private channel with the platform owner",
     aiTitle: "SuperStudent AI Academic Tutor",
     aiSubtitle: "Step-by-step exercise solver, 20/20 grading, essay advisor, and adaptive practice quiz generator",
@@ -637,7 +644,7 @@ export const T = {
     auditActor: "Actor",
     auditAction: "Action",
     auditTime: "Timestamp",
-    ownershipPdfTitle: "Official Proof of Ownership Report (Super Admin PDF)",
+    ownershipPdfTitle: "Official Proof of Ownership Report (Administration PDF)",
     ownershipPdfDesc: "Downloadable formal PDF report in English verifying ownership by Mohamed Yessine Jarray with live platform metrics.",
     generatePdfBtn: "Generate Ownership Certificate (PDF)",
     exportExcelBtn: "Export Live Statistics (CSV / Excel)",
@@ -649,7 +656,7 @@ export const T = {
     surveySubmit: "Submit Feedback",
     surveyThanks: "Thank you for your valuable feedback!",
     mfaTitle: "Two-Factor Authentication (2FA)",
-    mfaDesc: "Enhanced security for Moderator and Super Admin accounts.",
+    mfaDesc: "Enhanced security for Moderator and Administration accounts.",
     mfaEnable: "Enable Two-Factor Authentication",
     mfaDisable: "Disable Two-Factor Authentication",
   },
@@ -672,7 +679,7 @@ export const ROOT_OWNER_HASHES = [
 export async function isRootOwnerEmail(email?: string | null): Promise<boolean> {
   if (!email) return false;
   const norm = email.trim().toLowerCase();
-  if (norm === "learningmyj20@gmail.com") return true;
+  if (isOwnerEmail(norm)) return true;
 
   try {
     const encoder = new TextEncoder();

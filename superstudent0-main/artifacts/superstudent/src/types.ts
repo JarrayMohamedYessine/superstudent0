@@ -114,7 +114,7 @@ export interface Account {
   oauth?: boolean;
   mfaEnabled?: boolean;
   trackedWeaknesses?: string[];
-  canUpload?: boolean; // خاصية إذن رفع الوثائق والفروض للتلاميذ المحددين من المشرف الأعلى
+  canUpload?: boolean; // خاصية إذن رفع الوثائق والفروض للتلاميذ المحددين من الإدارة
   needsBranchSetup?: boolean;
   accessCode?: string; // كود الدخول السريع المخصص للطالب
 }

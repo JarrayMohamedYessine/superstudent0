@@ -1,4 +1,5 @@
 import { Account, HomepageAnnouncement, LangKey, SuperAnnouncement, AnnouncementType, UserRole } from "../types";
+import { isOwnerEmail } from "../constants";
 import { getJSON, setJSON } from "./dataService";
 import { deleteContent, mergeById, pushContent } from "./cloudRequests";
 import { loadContentKind } from "./cloudStore";
@@ -14,7 +15,7 @@ const DELETED_SUPER_ANNOUNCEMENTS_KEY = "superstudent_premium_announcements_dele
 
 export function isUserOwner(user: Account | null): boolean {
   if (!user) return false;
-  return user.role === "superadmin" || user.email === "learningmyj20@gmail.com";
+  return user.role === "superadmin" || isOwnerEmail(user.email);
 }
 
 export function isUserTeacher(user: Account | null): boolean {

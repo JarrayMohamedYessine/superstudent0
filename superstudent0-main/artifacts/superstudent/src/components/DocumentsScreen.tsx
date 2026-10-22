@@ -1274,7 +1274,7 @@ export function DocumentsScreen({
                             )}
                             {doc.authorRole === "superadmin" && (
                               <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-purple-500/20 text-purple-300 border border-purple-500/30">
-                                👑 {lang === "ar" ? "المشرف الأعلى" : "Admin"}
+                                👑 {lang === "ar" ? "الإدارة" : "Admin"}
                               </span>
                             )}
                             {(!doc.authorRole || doc.authorRole === "member") && (
@@ -1434,7 +1434,7 @@ export function DocumentsScreen({
                               )}
                               {doc.authorRole === "superadmin" && (
                                 <span className="px-2 py-0.2 rounded-full text-[10px] font-black bg-purple-500/20 text-purple-300 border border-purple-500/30">
-                                  👑 {lang === "ar" ? "المشرف الأعلى" : "Admin"}
+                                  👑 {lang === "ar" ? "الإدارة" : "Admin"}
                                 </span>
                               )}
                               {(!doc.authorRole || doc.authorRole === "member") && (
@@ -1536,7 +1536,7 @@ export function DocumentsScreen({
                   </h3>
                   <p className="text-xs text-slate-400">
                     {lang === "ar"
-                      ? `أنت تنشر بصفتك: ${user?.role === "superadmin" ? "المشرف الأعلى" : user?.role === "moderator" ? "مشرف" : "تلميذ مساهم"}`
+                      ? `أنت تنشر بصفتك: ${user?.role === "superadmin" ? "الإدارة" : user?.role === "moderator" ? "مشرف" : "تلميذ مساهم"}`
                       : lang === "fr"
                         ? `Publication par : ${user?.role === "superadmin" ? "Super administrateur" : user?.role === "moderator" ? "Modérateur" : "Élève contributeur"}`
                         : `Publishing as: ${user?.role === "superadmin" ? "Super administrator" : user?.role === "moderator" ? "Moderator" : "Student contributor"}`}

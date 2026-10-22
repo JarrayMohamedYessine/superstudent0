@@ -203,7 +203,7 @@ export const INITIAL_MONTHLY_POLL: MonthlyPollItem = {
 };
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// SERVICE METHODS (حفظ واسترجاع البيانات عبر Supabase / LocalStorage)
+// SERVICE METHODS (حفظ واسترجاع البيانات في الذاكرة فقط خلال الجلسة)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 export async function getSuccessStories(): Promise<SuccessStoryItem[]> {

@@ -1158,7 +1158,7 @@ export function AdminScreen({
                           }}
                           className="bac-btn rounded-xl px-3 py-2 text-xs font-bold cursor-pointer bg-purple-500/20 text-purple-300 border border-purple-500/30"
                         >
-                          {result.role === "superadmin" ? "إلغاء المشرف الأعلى" : "تعيين مشرف أعلى / مالك"}
+                          {result.role === "superadmin" ? "إزالة صلاحية الإدارة" : "تعيين الإدارة / مالك"}
                         </button>
                       )}
 
@@ -1270,7 +1270,7 @@ export function AdminScreen({
                         </div>
                         {u.role === "superadmin" && (
                           <Chip color={COLORS.gold} bg="rgba(251,191,36,.16)">
-                            {lang === "ar" ? "👑 المالك والمشرف الأعلى" : "SuperAdmin"}
+                            {lang === "ar" ? "👑 المالك والإدارة" : "Administration"}
                           </Chip>
                         )}
                         {((u.role as string) === "teacher" || u.role === "moderator") && u.role !== "superadmin" && (
@@ -1308,7 +1308,7 @@ export function AdminScreen({
               <div>
                 <h3 className="text-sm font-bold text-white flex items-center gap-2">
                   <MessageSquareHeart size={18} className="text-amber-400" />
-                  <span>{lang === "ar" ? "تقييمات وملاحظات التلاميذ (المشرف الأعلى)" : "Évaluations et Avis des Élèves"}</span>
+                  <span>{lang === "ar" ? "تقييمات وملاحظات التلاميذ (الإدارة)" : "Évaluations et Avis des Élèves"}</span>
                 </h3>
                 <p className="text-xs text-slate-400 mt-0.5">
                   {lang === "ar"
@@ -1832,7 +1832,7 @@ export function AdminScreen({
                 </div>
                 <p className="text-xs text-slate-400 mt-0.5">
                   {lang === "ar"
-                    ? "رسائل المشرف الأعلى التي تظهر في الصفحة الرئيسية مع اختيار الفئة المستهدفة، الشعب، والمدة (12 - 72 ساعة)."
+                    ? "رسائل الإدارة التي تظهر في الصفحة الرئيسية مع اختيار الفئة المستهدفة، الشعب، والمدة (12 - 72 ساعة)."
                     : lang === "fr" ? "Annonces ciblées par rôle et filière, visibles de 12 à 72 heures." : "Announcements targeted by role and study track, visible for 12–72 hours."}
                 </p>
               </div>

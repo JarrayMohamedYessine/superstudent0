@@ -292,7 +292,7 @@ export async function deleteUserAccountRPC(targetEmail: string): Promise<{ succe
     }
   }
 
-  // 4. Evict profile from memory cache and localStorage
+  // 4. Evict profile from memory cache
   try {
     const { evictUserProfileCache } = await import("../data/userProfilesCache");
     evictUserProfileCache(norm);

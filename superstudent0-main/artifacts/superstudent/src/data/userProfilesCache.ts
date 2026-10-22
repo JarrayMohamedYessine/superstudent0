@@ -7,6 +7,7 @@
  */
 
 import { Account, UserRole } from "../types";
+import { OWNER_EMAIL } from "../constants";
 
 export interface CachedUserProfile {
   email: string;
@@ -27,10 +28,10 @@ export interface CachedUserProfile {
  * Pre-seeded frequently used user profiles stored directly inside the website file structure.
  */
 export const STATIC_USER_PROFILES: Record<string, CachedUserProfile> = {
-  "learningmyj20@gmail.com": {
-    email: "learningmyj20@gmail.com",
+  [OWNER_EMAIL]: {
+    email: OWNER_EMAIL,
     username: "superstudent_admin",
-    displayName: "الأستاذ مهدي — المشرف الأعلى",
+    displayName: "الإدارة",
     branch: "math",
     gradeLevel: "4eme_bac",
     role: "superadmin",
