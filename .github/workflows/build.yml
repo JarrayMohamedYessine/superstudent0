@@ -3,16 +3,17 @@ on: [push]
 jobs:
   build:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: superstudent0-main
     steps:
       - uses: actions/checkout@v4
       - name: Use Node.js 22.18.0
         uses: actions/setup-node@v4
         with:
           node-version: 22.18.0
-      - name: Enable corepack & prepare pnpm
-        run: |
-          corepack enable
-          corepack prepare pnpm@latest --activate
+      - name: Install pnpm
+        run: npm install -g pnpm@10
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Build workspace
