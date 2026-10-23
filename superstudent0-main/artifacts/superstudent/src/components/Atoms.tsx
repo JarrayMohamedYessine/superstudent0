@@ -677,7 +677,7 @@ export function TopBar({
             <span className="text-xs text-slate-200 font-bold whitespace-nowrap">{user.displayName}</span>
 
             {(() => {
-              const isOwner = user.role === "superadmin" || user.email === "learningmyj20@gmail.com";
+              const isOwner = user.role === "superadmin";
               const isTeacher = user.role === "teacher";
               if (isOwner) {
                 return (

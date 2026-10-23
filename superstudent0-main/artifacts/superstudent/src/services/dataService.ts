@@ -1,7 +1,6 @@
 import {
   MESSAGE_RETENTION_MS,
   MEDIA_VAULT_RETENTION_MS,
-  isRootOwnerEmail,
 } from "../constants";
 import {
   Account,
@@ -34,21 +33,15 @@ export function safeUsername(email: string): string {
 }
 
 /**
- * Loads an account from local storage / cache.
+ * Loads an account from the in-memory store (no persistent storage).
+ * Super-admin status is granted only through the Cloudflare Worker verifier
+ * (services/adminVerifier.ts) at login — never from a local email list.
  */
 export async function getAccountByEmail(email: string): Promise<Account | null> {
   const emailNorm = normEmail(email);
   if (!emailNorm) return null;
 
-  const isOwner = await isRootOwnerEmail(emailNorm);
-  let cached = await getJSON<Account>("account:" + emailNorm, true);
-
-  if (cached && isOwner) {
-    cached.role = "superadmin";
-    cached.canUpload = true;
-    cached.banned = false;
-  }
-  return cached;
+  return await getJSON<Account>("account:" + emailNorm, true);
 }
 
 /**

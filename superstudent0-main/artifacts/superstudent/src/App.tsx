@@ -23,6 +23,7 @@ import { setStoredToken } from "./services/authClient";
 import { Logo } from "./components/Atoms";
 import { AuthScreen } from "./components/AuthScreen";
 import { BranchesScreen } from "./components/BranchesScreen";
+import { DocumentsScreen } from "./components/DocumentsScreen";
 import { BranchDiscordScreen } from "./components/BranchDiscordScreen";
 import { AdminScreen } from "./components/AdminScreen";
 import { SettingsScreen } from "./components/SettingsScreen";
@@ -66,6 +67,7 @@ const GLOBAL_CSS = `
 export type AppScreen =
   | "auth"
   | "branches"
+  | "documents"
   | "discord"
   | "announcements"
   | "contribute"
@@ -118,7 +120,7 @@ export default function App() {
 
   const effectiveUser = useMemo<Account | null>(() => {
     if (!user) return null;
-    const isOwner = user.role === "superadmin" || user.email === "learningmyj20@gmail.com";
+    const isOwner = user.role === "superadmin";
     if (!isOwner) return user;
     if (impersonatedRole === "guest") return null;
     if (impersonatedRole) {
@@ -253,7 +255,7 @@ export default function App() {
 
   const showBottomNav = true;
 
-  const isOwner = effectiveUser?.role === "superadmin" || effectiveUser?.email === "learningmyj20@gmail.com";
+  const isOwner = effectiveUser?.role === "superadmin";
   const isTeacher = effectiveUser?.role === "teacher";
   const isOwnerOrTeacher = isOwner || isTeacher;
 
@@ -346,6 +348,7 @@ export default function App() {
             }}
             onPickBranch={handlePickBranch}
             onRequireAuth={() => setScreen("auth")}
+            onOpenDocuments={() => setScreen("documents")}
             onOpenAnnouncements={() => setScreen("announcements")}
             onOpenDiscord={() => setScreen("discord")}
             onOpenContribute={() => setScreen("contribute")}
@@ -371,6 +374,26 @@ export default function App() {
             onOpenNotifications={() => setIsNotifModalOpen(true)}
             unreadNotificationsCount={unreadNotifCount}
           />
+        )}
+
+        {screen === "documents" && (
+          <div className="flex flex-col min-h-screen">
+            <DocumentsScreen
+              user={effectiveUser}
+              lang={lang}
+              isRTL={isRTL}
+              onLogout={handleLogout}
+              onOpenAdmin={() => setScreen("admin")}
+              onOpenSettings={() => {
+                setSettingsSource("role");
+                setScreen("settings");
+              }}
+              onRequireAuth={() => setScreen("auth")}
+              onOpenContribute={canShowContributionPage ? () => setScreen("contribute") : undefined}
+              onOpenNotifications={() => setIsNotifModalOpen(true)}
+              unreadNotificationsCount={unreadNotifCount}
+            />
+          </div>
         )}
 
         {screen === "announcements" && (
@@ -495,6 +518,27 @@ export default function App() {
                 screen === "branches" ? "text-indigo-300" : "text-slate-400"
               }`}>
                 {lang === "ar" ? "الرئيسية" : lang === "fr" ? "Accueil" : "Home"}
+              </span>
+            </button>
+
+            {/* Tab: Documents Bank (Exams, Summaries, National Tests, Corrections) */}
+            <button
+              onClick={() => setScreen("documents")}
+              className={`nav-dock-tab flex-1 min-w-0 py-1 sm:py-1.5 px-0.5 sm:px-1.5 rounded-xl sm:rounded-2xl cursor-pointer ${
+                screen === "documents" ? "active" : ""
+              }`}
+            >
+              <div className={`btn-graphic-box w-7 h-7 sm:w-8 sm:h-8 rounded-xl flex items-center justify-center transition-all ${
+                screen === "documents"
+                  ? "bg-gradient-to-tr from-emerald-600 to-teal-500 text-white shadow-md shadow-emerald-500/40"
+                  : "bg-white/[0.05] text-slate-400"
+              }`}>
+                <FileText size={16} />
+              </div>
+              <span className={`text-[9px] sm:text-[11px] font-bold truncate max-w-full text-center tracking-tight transition-colors ${
+                screen === "documents" ? "text-emerald-300" : "text-slate-400"
+              }`}>
+                {lang === "ar" ? "بنك الوثائق" : lang === "fr" ? "Sujets & Docs" : "Documents"}
               </span>
             </button>
 

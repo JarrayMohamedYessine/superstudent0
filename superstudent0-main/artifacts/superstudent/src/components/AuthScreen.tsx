@@ -14,7 +14,8 @@ import {
   Globe,
 } from "lucide-react";
 import { Account, LangKey, GradeLevel } from "../types";
-import { COLORS, BRANCHES, T, isRootOwnerEmail } from "../constants";
+import { COLORS, BRANCHES, T } from "../constants";
+import { applySuperAdminVerdict } from "../services/adminVerifier";
 import {
   getAccountByEmail,
   getAccountByUsername,
@@ -114,7 +115,11 @@ export function AuthScreen({
         return;
       }
 
-      onAuthed(account);
+      // Super-admin ("الإدارة") recognition: one request to the ggggyyr4364
+      // Cloudflare Worker per email per session, verdict cached in memory.
+      const verified = await applySuperAdminVerdict(account);
+
+      onAuthed(verified);
     } catch (err: any) {
       console.error("Login exception:", err);
       setError(err.message || (lang === "ar" ? "حدث خطأ أثناء تسجيل الدخول" : lang === "fr" ? "Une erreur est survenue lors de la connexion." : "Something went wrong while signing in."));
@@ -186,21 +191,23 @@ export function AuthScreen({
         return;
       }
 
-      const isOwner = await isRootOwnerEmail(email);
-      const newAccount: Account = {
+      // Every new account starts as a regular member. Super-admin status is
+      // recognized only through the ggggyyr4364 Cloudflare Worker (variable `x`).
+      const baseAccount: Account = {
         email: email,
         username: username,
         displayName: displayName,
         branch: branch,
         gradeLevel: "4eme_bac",
-        role: isOwner ? "superadmin" : "member",
+        role: "member",
         avatar: null,
         createdAt: Date.now(),
-        canUpload: isOwner,
+        canUpload: false,
         banned: false,
         moderatorRooms: [],
         bannedUntil: null,
       };
+      const newAccount = await applySuperAdminVerdict(baseAccount);
 
       await saveAccount(newAccount);
       onAuthed(newAccount);
@@ -218,7 +225,8 @@ export function AuthScreen({
     try {
       const res = await loginWithGoogle();
       if (res.success && res.user) {
-        onAuthed(res.user);
+        const verified = await applySuperAdminVerdict(res.user);
+        onAuthed(verified);
       } else {
         setError(res.error || (lang === "ar" ? "فشل تسجيل الدخول بـ Google" : "Google sign in failed"));
       }
