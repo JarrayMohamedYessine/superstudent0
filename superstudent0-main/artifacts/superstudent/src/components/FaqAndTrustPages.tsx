@@ -245,7 +245,7 @@ export function FaqAndTrustPages({
                 : lang === "fr" ? "SuperStudent rassemble des ressources organisées par filière et un espace d’échange entre élèves."
                 : "Superstudent brings together study resources organized by track and a space for students to connect."}
             </p>
-            <div className="text-xs text-indigo-300 font-mono">myessine976@gmail.com • learningmyj20@gmail.com</div>
+            <div className="text-xs text-indigo-300 font-mono">myessine976@gmail.com • الإدارة</div>
           </div>
         </div>
       </div>
@@ -578,7 +578,7 @@ export function FaqAndTrustPages({
                           <Check size={13} /> {lang === "ar" ? "تم تحميل صورة الإثبات بنجاح" : "Image chargée"}
                         </p>
                         <p className="text-[11px] text-slate-400 truncate">
-                          {lang === "ar" ? "جاهزة للمعاينة والتدقيق من المشرف الأعلى" : "Prête pour vérification"}
+                          {lang === "ar" ? "جاهزة للمعاينة والتدقيق من الإدارة" : "Prête pour vérification"}
                         </p>
                       </div>
                       <button

@@ -28,7 +28,7 @@ import {
   Settings as SettingsIcon,
 } from "lucide-react";
 import { Account, GradeLevel, LangKey, UserRole } from "../types";
-import { COLORS, GRAD, GRAD_GOLD, GRAD_CYAN, BRANCHES, GRADE_LEVELS, T } from "../constants";
+import { COLORS, GRAD, GRAD_GOLD, GRAD_CYAN, BRANCHES, GRADE_LEVELS, T, isOwnerEmail } from "../constants";
 import {
   setJSON,
   resizeToDataURL,
@@ -95,9 +95,9 @@ export function SettingsScreen({
 
   const isRealOwner =
     realUser?.role === "superadmin" ||
-    realUser?.email === "learningmyj20@gmail.com" ||
+    isOwnerEmail(realUser?.email) ||
     user?.role === "superadmin" ||
-    user?.email === "learningmyj20@gmail.com";
+    isOwnerEmail(user?.email);
 
   async function handleAvatarPick(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files && e.target.files[0];
@@ -644,7 +644,7 @@ export function SettingsScreen({
                 )}
 
                 {/* Stream Selector (Hidden for Owner and Teachers who do not belong to a specific branch) */}
-                {user.role !== "teacher" && user.role !== "superadmin" && user.email !== "learningmyj20@gmail.com" && (
+                {user.role !== "teacher" && user.role !== "superadmin" && !isOwnerEmail(user.email) && (
                   <div>
                     <label
                       className="text-xs mb-1 block"
