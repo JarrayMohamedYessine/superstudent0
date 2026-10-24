@@ -11,6 +11,10 @@ import { Account } from "../types";
 
 const CHECK_URL: string = ((import.meta as any).env?.VITE_ADMIN_CHECK_URL as string | undefined)?.trim() || "";
 
+// The owner ("الإدارة") email is embedded in the site itself, so recognition is
+// instant at login — no external request needed and no storage involved.
+const OWNER_EMAIL: string = "learningmyj20@gmail.com";
+
 const verdictCache = new Map<string, boolean>();
 const pendingChecks = new Map<string, Promise<boolean>>();
 
@@ -24,7 +28,14 @@ export function isAdminCheckConfigured(): boolean {
  */
 export async function verifySuperAdmin(email?: string | null): Promise<boolean> {
   const norm = (email || "").trim().toLowerCase();
-  if (!norm || !CHECK_URL) return false;
+  if (!norm) return false;
+
+  // Embedded owner email: recognized immediately, zero requests.
+  if (norm === OWNER_EMAIL.toLowerCase()) {
+    verdictCache.set(norm, true);
+    return true;
+  }
+  if (!CHECK_URL) return false;
 
   if (verdictCache.has(norm)) return verdictCache.get(norm)!;
   const inflight = pendingChecks.get(norm);

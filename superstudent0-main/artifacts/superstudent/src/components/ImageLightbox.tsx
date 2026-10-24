@@ -5,7 +5,7 @@ import { ChevronLeft, ChevronRight, Download, ExternalLink, RotateCw, X, ZoomIn,
  * Real image viewer (full screen): zoom (buttons, wheel, double click), drag to pan, rotate,
  * previous/next for albums, download, open in a new tab, Esc / backdrop click to close.
  *
- * Why it exists: images are stored as data URLs or Catbox links, and browsers refuse to
+ * Why it exists: images are in-memory data URLs or plain links, and browsers refuse to
  * navigate a new tab to a data: URL, so a plain <a href target="_blank"> showed nothing.
  * Here the image is rendered inside the app, and "open in a new tab" goes through a Blob URL.
  */

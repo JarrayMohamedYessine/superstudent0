@@ -23,7 +23,6 @@ import {
   normEmail,
 } from "../services/dataService";
 import { loginWithGoogle } from "../services/firebase";
-import { loginApi, registerApi } from "../services/authClient";
 import { Logo, ErrorNote, Spinner } from "./Atoms";
 
 function isAccountBanned(acc: Account | null): boolean {
@@ -115,8 +114,8 @@ export function AuthScreen({
         return;
       }
 
-      // Super-admin ("الإدارة") recognition: one request to the ggggyyr4364
-      // Cloudflare Worker per email per session, verdict cached in memory.
+      // "الإدارة" recognition: in-memory verdict only (embedded owner email +
+      // optional Worker check), no request for the owner and no storage.
       const verified = await applySuperAdminVerdict(account);
 
       onAuthed(verified);
@@ -192,7 +191,7 @@ export function AuthScreen({
       }
 
       // Every new account starts as a regular member. Super-admin status is
-      // recognized only through the ggggyyr4364 Cloudflare Worker (variable `x`).
+      // recognized only in memory via adminVerifier (no request, no storage).
       const baseAccount: Account = {
         email: email,
         username: username,
