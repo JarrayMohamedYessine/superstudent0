@@ -28,11 +28,10 @@ import {
   Settings as SettingsIcon,
 } from "lucide-react";
 import { Account, GradeLevel, LangKey, UserRole } from "../types";
-import { COLORS, GRAD, GRAD_GOLD, GRAD_CYAN, BRANCHES, GRADE_LEVELS, T, isOwnerEmail } from "../constants";
+import { COLORS, GRAD, GRAD_GOLD, GRAD_CYAN, BRANCHES, GRADE_LEVELS, T } from "../constants";
 import {
   setJSON,
   resizeToDataURL,
-  uploadAvatarToStorage,
   saveAccount,
 } from "../services/dataService";
 import { TopBar, Avatar, TextField, ErrorNote, PrimaryButton } from "./Atoms";
@@ -94,11 +93,9 @@ export function SettingsScreen({
     setAvatar(user?.avatar || null);
   }, [user]);
 
+  // "الإدارة" is recognized via the ggggyyr4364 Worker at login (role === "superadmin")
   const isRealOwner =
-    realUser?.role === "superadmin" ||
-    isOwnerEmail(realUser?.email) ||
-    user?.role === "superadmin" ||
-    isOwnerEmail(user?.email);
+    realUser?.role === "superadmin" || user?.role === "superadmin";
 
   async function handleAvatarPick(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files && e.target.files[0];
@@ -120,10 +117,7 @@ export function SettingsScreen({
       return;
     }
     setSaving(true);
-    let avatarUrl = avatar;
-    if (avatar && avatar.startsWith("data:")) {
-      avatarUrl = await uploadAvatarToStorage(avatar, user.username);
-    }
+    const avatarUrl = avatar;
     const updated: Account = {
       ...user,
       displayName: displayName.trim().slice(0, 30),
@@ -648,7 +642,7 @@ export function SettingsScreen({
                 )}
 
                 {/* Stream Selector (Hidden for Owner and Teachers who do not belong to a specific branch) */}
-                {user.role !== "teacher" && user.role !== "superadmin" && !isOwnerEmail(user.email) && (
+                {user.role !== "teacher" && user.role !== "superadmin" && (
                   <div>
                     <label
                       className="text-xs mb-1 block"

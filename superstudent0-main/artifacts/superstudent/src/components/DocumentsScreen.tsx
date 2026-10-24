@@ -25,11 +25,8 @@ import {
   Copy,
   CheckCircle2,
   FileCheck,
-  FolderArchive,
   Upload,
   ExternalLink,
-  HardDrive,
-  Archive,
 } from "lucide-react";
 import {
   Account,
@@ -61,7 +58,6 @@ import {
   downloadBothDocumentFiles,
   openBacDocumentNativePdf,
 } from "../services/documentsService";
-import { uploadToZeroCostStorage } from "../services/remoteStorageService";
 import { TopBar, Avatar, Chip, FieldShell, PrimaryButton, Spinner } from "./Atoms";
 
 interface DocumentsScreenProps {
@@ -490,41 +486,11 @@ export function DocumentsScreen({
     setSubmitting(true);
     setFormError("");
 
-    // Zero-Cost Cloud Storage Multi-Origin Upload (Catbox / Litterbox / Telegram CDN)
-    let uploadedPdfUrl: string | undefined = undefined;
-    if (newPdfFile?.dataUrl) {
-      try {
-        const uploadResult = await uploadToZeroCostStorage({
-          dataUrl: newPdfFile.dataUrl,
-          name: newPdfFile.name || newTitle.trim(),
-        });
-        if (uploadResult.success && uploadResult.publicUrl) {
-          uploadedPdfUrl = uploadResult.publicUrl;
-        }
-      } catch (err) {
-        console.warn("[DocumentsScreen] Remote storage upload notice:", err);
-      }
-    }
-
+    // Memory-only publish: the PDF stays as a data URL in the in-memory vault,
+    // no remote storage service of any kind is used.
     const isSummaryOrCourse = newType === "resume" || newType === "cours" || newType === "correction";
     const finalHasCorrige = isSummaryOrCourse ? false : (newHasCorrige && !!newCorrigePdfFile);
-    let finalCorrigeUrl: string | undefined = undefined;
-
-    if (!isSummaryOrCourse && newHasCorrige && newCorrigePdfFile?.dataUrl) {
-      try {
-        const corrUpload = await uploadToZeroCostStorage({
-          dataUrl: newCorrigePdfFile.dataUrl,
-          name: newCorrigePdfFile.name || `${newTitle.trim()}_corrige.pdf`,
-        });
-        if (corrUpload.success && corrUpload.publicUrl) {
-          finalCorrigeUrl = corrUpload.publicUrl;
-        }
-      } catch (err) {
-        console.warn("[DocumentsScreen] Corrige upload notice:", err);
-      }
-    }
-
-    const finalCorrigePdfDataUrl = (!isSummaryOrCourse && newHasCorrige) ? (finalCorrigeUrl || newCorrigePdfFile?.dataUrl) : undefined;
+    const finalCorrigePdfDataUrl = (!isSummaryOrCourse && newHasCorrige) ? newCorrigePdfFile?.dataUrl : undefined;
     const finalCorrigeFileName = (!isSummaryOrCourse && newHasCorrige) ? newCorrigePdfFile?.name : undefined;
     const finalCorrigeFileSize = (!isSummaryOrCourse && newHasCorrige) ? newCorrigePdfFile?.size : undefined;
 
@@ -537,10 +503,10 @@ export function DocumentsScreen({
         trimestre: newTrimestre,
         hasCorrige: finalHasCorrige,
         fileSize: newPdfFile?.size || "75 KB",
-        pdfUrl: uploadedPdfUrl || newPdfFile?.dataUrl,
-        pdfDataUrl: uploadedPdfUrl || newPdfFile?.dataUrl,
+        pdfUrl: newPdfFile?.dataUrl,
+        pdfDataUrl: newPdfFile?.dataUrl,
         examFileName: newPdfFile?.name,
-        corrigePdfUrl: finalCorrigeUrl,
+        corrigePdfUrl: finalCorrigePdfDataUrl,
         corrigePdfDataUrl: finalCorrigePdfDataUrl,
         corrigeFileName: finalCorrigeFileName,
         corrigeFileSize: finalCorrigeFileSize,

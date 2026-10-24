@@ -4,15 +4,32 @@ import {
   CheckCircle2,
   Mail,
   Lock,
-  GraduationCap,
   User,
+  ArrowRight,
+  ArrowLeft,
+  Sparkles,
+  GraduationCap,
   Eye,
   EyeOff,
   Globe,
 } from "lucide-react";
-import { Account, LangKey } from "../types";
+import { Account, LangKey, GradeLevel } from "../types";
 import { COLORS, BRANCHES, T } from "../constants";
+import { applySuperAdminVerdict } from "../services/adminVerifier";
+import {
+  getAccountByEmail,
+  getAccountByUsername,
+  saveAccount,
+  normEmail,
+} from "../services/dataService";
+import { loginWithGoogle } from "../services/firebase";
 import { Logo, ErrorNote, Spinner } from "./Atoms";
+
+function isAccountBanned(acc: Account | null): boolean {
+  if (!acc) return false;
+  if (acc.bannedUntil) return acc.bannedUntil > Date.now();
+  return !!acc.banned;
+}
 
 export function AuthScreen({
   lang,
@@ -46,27 +63,177 @@ export function AuthScreen({
 
   async function handleLoginSubmit(e: React.FormEvent) {
     e.preventDefault();
-    // Sign-in disabled: no accounts are checked or stored anywhere.
-    setError(
-      lang === "ar"
-        ? "تسجيل الدخول معطّل في هذا الإصدار: لا يتم تخزين أي بيانات."
-        : lang === "fr" ? "La connexion est désactivée dans cette version." : "Sign-in is disabled in this version."
-    );
+    setError("");
+
+    const identifier = loginIdentifier.trim();
+    const password = loginPassword;
+
+    if (!identifier) {
+      setError(
+        lang === "ar"
+          ? "الرجاء إدخال البريد الإلكتروني أو اسم المستخدم"
+          : lang === "fr" ? "Saisissez votre adresse e-mail ou nom d’utilisateur." : "Enter your email address or username."
+      );
+      return;
+    }
+    if (!password) {
+      setError(lang === "ar" ? "الرجاء إدخال كلمة المرور" : lang === "fr" ? "Saisissez votre mot de passe." : "Enter your password.");
+      return;
+    }
+
+    setBusy(true);
+    try {
+      let targetEmail = identifier.toLowerCase();
+
+      // If user typed a username without @, find their associated email
+      if (!targetEmail.includes("@")) {
+        const found = await getAccountByUsername(targetEmail);
+        if (!found) {
+          setError(
+            lang === "ar"
+              ? "اسم المستخدم غير مسجل، يمكنك إنشاء حساب جديد"
+              : lang === "fr" ? "Nom d’utilisateur introuvable." : "Username not found. You can create an account."
+          );
+          setBusy(false);
+          return;
+        }
+        targetEmail = found.email;
+      }
+
+      const account: Account | null = await getAccountByEmail(targetEmail);
+
+      if (!account) {
+        setError(lang === "ar" ? "الحساب غير مسجل، يمكنك إنشاء حساب جديد" : lang === "fr" ? "Compte introuvable." : "Account not found.");
+        setBusy(false);
+        return;
+      }
+
+      if (isAccountBanned(account)) {
+        setError(lang === "ar" ? "هذا الحساب محظور حالياً" : lang === "fr" ? "Ce compte est actuellement suspendu." : "This account is currently suspended.");
+        setBusy(false);
+        return;
+      }
+
+      // "الإدارة" recognition: in-memory verdict only (embedded owner email +
+      // optional Worker check), no request for the owner and no storage.
+      const verified = await applySuperAdminVerdict(account);
+
+      onAuthed(verified);
+    } catch (err: any) {
+      console.error("Login exception:", err);
+      setError(err.message || (lang === "ar" ? "حدث خطأ أثناء تسجيل الدخول" : lang === "fr" ? "Une erreur est survenue lors de la connexion." : "Something went wrong while signing in."));
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function handleSignupSubmit(e: React.FormEvent) {
     e.preventDefault();
-    // Account creation disabled: nothing is stored anywhere.
-    setError(
-      lang === "ar"
-        ? "إنشاء الحسابات معطّل في هذا الإصدار: لا يتم تخزين أي بيانات."
-        : lang === "fr" ? "La création de comptes est désactivée dans cette version." : "Account creation is disabled in this version."
-    );
+    setError("");
+
+    const displayName = signupDisplayName.trim();
+    const username = signupUsername.trim().toLowerCase().replace(/[^a-z0-9_]/g, "");
+    const email = signupEmail.trim().toLowerCase();
+    const branch = signupBranch;
+    const password = signupPassword;
+
+    if (!displayName) {
+      setError(lang === "ar" ? "الرجاء إدخال الاسم واللقب" : lang === "fr" ? "Saisissez votre nom complet." : "Enter your full name.");
+      return;
+    }
+    if (!username || username.length < 3) {
+      setError(
+        lang === "ar"
+          ? "اسم المستخدم يجب أن يتكون من 3 أحرف أو أرقام إنجليزية على الأقل"
+          : lang === "fr" ? "Le nom d’utilisateur doit comporter au moins 3 caractères."
+          : "Username must be at least 3 characters long."
+      );
+      return;
+    }
+    if (!email || !email.includes("@")) {
+      setError(lang === "ar" ? "الرجاء إدخال بريد إلكتروني صالح" : lang === "fr" ? "Adresse e-mail invalide." : "Enter a valid email address.");
+      return;
+    }
+    if (!password || password.length < 6) {
+      setError(
+        lang === "ar"
+          ? "كلمة المرور يجب ألا تقل عن 6 أحرف"
+          : lang === "fr" ? "Le mot de passe doit comporter au moins 6 caractères."
+          : "Password must be at least 6 characters long."
+      );
+      return;
+    }
+
+    setBusy(true);
+    try {
+      // Check if username already exists in Supabase
+      const existingUser = await getAccountByUsername(username);
+      if (existingUser) {
+        setError(
+          lang === "ar"
+            ? "اسم المستخدم هذا محجوز مسبقاً، يرجى اختيار اسم آخر"
+              : lang === "fr" ? "Ce nom d’utilisateur est déjà utilisé." : "That username is already taken."
+        );
+        setBusy(false);
+        return;
+      }
+
+      // Check if email already registered
+      const existingEmail = await getAccountByEmail(email);
+      if (existingEmail) {
+        setError(
+          lang === "ar"
+            ? "هذا البريد الإلكتروني مسجل بالفعل، يمكنك تسجيل الدخول مباشرة"
+              : lang === "fr" ? "Cette adresse e-mail est déjà enregistrée." : "This email address is already registered."
+        );
+        setBusy(false);
+        return;
+      }
+
+      // Every new account starts as a regular member. Super-admin status is
+      // recognized only in memory via adminVerifier (no request, no storage).
+      const baseAccount: Account = {
+        email: email,
+        username: username,
+        displayName: displayName,
+        branch: branch,
+        gradeLevel: "4eme_bac",
+        role: "member",
+        avatar: null,
+        createdAt: Date.now(),
+        canUpload: false,
+        banned: false,
+        moderatorRooms: [],
+        bannedUntil: null,
+      };
+      const newAccount = await applySuperAdminVerdict(baseAccount);
+
+      await saveAccount(newAccount);
+      onAuthed(newAccount);
+    } catch (err: any) {
+      console.error("Signup exception:", err);
+      setError(err.message || (lang === "ar" ? "تعذر إنشاء الحساب" : lang === "fr" ? "Impossible de créer le compte." : "Unable to create the account."));
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function handleGoogleSignIn() {
-    // Google sign-in disabled: no cloud service is contacted.
-    setError(lang === "ar" ? "تسجيل الدخول بـ Google معطّل في هذا الإصدار." : lang === "fr" ? "Connexion Google désactivée dans cette version." : "Google sign-in is disabled in this version.");
+    setError("");
+    setBusy(true);
+    try {
+      const res = await loginWithGoogle();
+      if (res.success && res.user) {
+        const verified = await applySuperAdminVerdict(res.user);
+        onAuthed(verified);
+      } else {
+        setError(res.error || (lang === "ar" ? "فشل تسجيل الدخول بـ Google" : "Google sign in failed"));
+      }
+    } catch (err: any) {
+      setError(err.message || "Erreur Google");
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (

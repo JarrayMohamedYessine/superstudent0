@@ -28,7 +28,6 @@ import {
   submitEliteApplication,
   getEliteApplications,
   resizeToDataURL,
-  uploadChatImageToStorage,
 } from "../services/dataService";
 
 interface FaqAndTrustProps {
@@ -173,11 +172,7 @@ export function FaqAndTrustPages({
     const numScore = parseFloat(eliteScore);
     setEliteSubmitting(true);
     try {
-      // Upload the proof image once and keep only its link (a base64 copy is the fallback if offline).
-      let proofImage = eliteProofImage || undefined;
-      if (proofImage && proofImage.startsWith("data:")) {
-        proofImage = await uploadChatImageToStorage(proofImage, `proof-${user.username}.jpg`);
-      }
+      const proofImage = eliteProofImage || undefined;
       const appItem: EliteApplicationItem = {
         id: "elite-app-" + Date.now() + "-" + Math.random().toString(36).slice(2, 6),
         username: user.username,

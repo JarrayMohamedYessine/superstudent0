@@ -1,34 +1,45 @@
-/**
- * Auth API removed: login / registration endpoints and the server session are gone.
- * The session now lives in memory only (cleared when the page closes) and no request
- * is ever sent anywhere. The UI keeps working; its sign-in buttons simply do nothing.
- */
-import { Account, UserRole } from "../types";
+import { Account } from "../types";
 
-let memoryToken: string | null = null;
-let memoryMe: { at: number; user: Account } | null = null;
+// In-memory session only: nothing is written to localStorage / storage of any kind.
+let storedToken: string | null = null;
+let cachedMe: Account | null = null;
 
-/** Role of the (memory-only) session, null when not logged in. */
-export function getCachedRole(): UserRole | null {
-  return memoryMe?.user.role ?? null;
+/** Role of the server session as of the last login/check (null when not logged in on the server). */
+export function getCachedRole(): Account["role"] | null {
+  return cachedMe?.role ?? null;
 }
 
 export function getStoredToken(): string | null {
-  return memoryToken;
+  return storedToken;
 }
 
 export function setStoredToken(token: string | null): void {
-  memoryToken = token;
-  if (!token) memoryMe = null;
+  storedToken = token;
+  if (!token) cachedMe = null;
 }
 
 export async function loginApi(
   emailOrUsername: string,
   password: string
 ): Promise<{ success: boolean; user?: Account; token?: string; error?: string }> {
-  void emailOrUsername;
-  void password;
-  return { success: false, error: "تم تعطيل تسجيل الدخول في هذا الإصدار." };
+  try {
+    const res = await fetch("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ emailOrUsername, password }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      return { success: false, error: data.error || "فشل تسجيل الدخول" };
+    }
+    if (data.token) {
+      setStoredToken(data.token);
+      cachedMe = data.user;
+    }
+    return { success: true, user: data.user, token: data.token };
+  } catch (err: any) {
+    return { success: false, error: "تعذر الاتصال بخادم المصادقة: " + (err.message || "Network error") };
+  }
 }
 
 export async function registerApi(payload: {
@@ -40,15 +51,68 @@ export async function registerApi(payload: {
   gradeLevel: string;
   avatar: string | null;
 }): Promise<{ success: boolean; user?: Account; token?: string; error?: string }> {
-  void payload;
-  return { success: false, error: "تم تعطيل إنشاء الحسابات في هذا الإصدار." };
+  try {
+    const res = await fetch("/api/auth/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      return { success: false, error: data.error || "فشل إنشاء الحساب" };
+    }
+    if (data.token) {
+      setStoredToken(data.token);
+      cachedMe = data.user;
+    }
+    return { success: true, user: data.user, token: data.token };
+  } catch (err: any) {
+    return { success: false, error: "تعذر الاتصال بخادم المصادقة: " + (err.message || "Network error") };
+  }
 }
 
 export async function getMeApi(): Promise<Account | null> {
-  return memoryMe?.user ?? null;
+  if (!storedToken) return null;
+  if (cachedMe) return cachedMe;
+  try {
+    const res = await fetch("/api/auth/me", {
+      headers: {
+        Authorization: `Bearer ${storedToken}`,
+      },
+    });
+    if (res.status === 401) {
+      setStoredToken(null);
+      return null;
+    }
+    if (!res.ok) {
+      return null;
+    }
+    const data = await res.json();
+    cachedMe = data.user || null;
+    return cachedMe;
+  } catch {
+    return null;
+  }
 }
 
 export async function updateProfileApi(updates: Partial<Account>): Promise<{ success: boolean; user?: Account; error?: string }> {
-  void updates;
-  return { success: false, error: "تم تعطيل تحديث الحساب في هذا الإصدار." };
+  if (!storedToken) return { success: false, error: "Not logged in" };
+  try {
+    const res = await fetch("/api/auth/update", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${storedToken}`,
+      },
+      body: JSON.stringify(updates),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      return { success: false, error: data.error || "Update failed" };
+    }
+    cachedMe = data.user;
+    return { success: true, user: data.user };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
 }

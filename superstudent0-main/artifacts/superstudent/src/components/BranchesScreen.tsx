@@ -26,7 +26,7 @@ import {
   Star,
 } from "lucide-react";
 import { Account, LangKey } from "../types";
-import { BRANCHES, T, isOwnerEmail } from "../constants";
+import { BRANCHES, T } from "../constants";
 import { TopBar, SuperStudentBrandName, ModernButton, ModernIconButton } from "./Atoms";
 import { getSectionBackgroundMeta } from "../services/backgroundsCatalog";
 import { BackgroundGalleryModal } from "./BackgroundGalleryModal";
@@ -86,7 +86,7 @@ export function BranchesScreen({
   const [galleryOpen, setGalleryOpen] = useState(false);
 
   // Active section for logged in user (or default to their selected branch)
-  const isOwner = user?.role === "superadmin" || isOwnerEmail(user?.email);
+  const isOwner = user?.role === "superadmin";
   const isTeacher = user?.role === "teacher";
   const isOwnerOrTeacher = isOwner || isTeacher;
 

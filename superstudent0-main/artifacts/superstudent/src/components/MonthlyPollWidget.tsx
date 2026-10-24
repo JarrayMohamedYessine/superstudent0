@@ -22,9 +22,8 @@ export function MonthlyPollWidget({
   const [hasVoted, setHasVoted] = useState(false);
   const [voting, setVoting] = useState(false);
 
-  // Anonymous voter id is kept in memory only: nothing is stored on the device.
-  const [anonVoterId] = useState(() => "anon_" + Math.random().toString(36).slice(2, 8));
-  const userId = user ? user.username : anonVoterId;
+  const [anonId] = useState(() => "anon_" + Math.random().toString(36).slice(2, 8));
+  const userId = user ? user.username : anonId;
 
   useEffect(() => {
     async function load() {

@@ -145,28 +145,6 @@ export function AnnouncementsScreen({
     if (e) e.stopPropagation();
     const pdfUrl = file.dataUrl || file.url;
     
-    const docItem: BacDocumentItem = {
-      id: ann.id || `ann_${Date.now()}`,
-      title: file.name || ann.title || "ملف مرفق بالإعلان",
-      subjectId: ann.subjectId || "math",
-      branchIds: ann.targetBranches || ["math"],
-      type: isCorrige ? "correction" : "cours",
-      trimestre: "all",
-      hasCorrige: Boolean(isCorrige || (ann.correctionPdfs && ann.correctionPdfs.length > 0)),
-      fileSize: file.size || "1.5 MB",
-      pdfUrl: isCorrige ? undefined : pdfUrl,
-      pdfDataUrl: isCorrige ? undefined : pdfUrl,
-      corrigePdfUrl: isCorrige ? pdfUrl : undefined,
-      corrigePdfDataUrl: isCorrige ? pdfUrl : undefined,
-      examFileName: file.name,
-      corrigeFileName: file.name,
-      authorDisplayName: ann.authorDisplayName || ann.authorUsername,
-      authorRole: ann.authorRole,
-      createdAt: ann.createdAt || Date.now(),
-      downloadCount: 120,
-      contentSnippet: ann.content,
-    };
-
     if (pdfUrl) {
       openInGooglePdfViewer(pdfUrl, file.name || ann.title);
     }

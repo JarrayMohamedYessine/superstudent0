@@ -17,24 +17,22 @@ import {
   Archive,
 } from "lucide-react";
 import { Account, GradeLevel, LangKey, RoomItem, UserRole, BacDocumentItem } from "./types";
-import { COLORS, GRAD, PRESENCE_WINDOW_MS, isAccountBanned, BRANCHES, T, isOwnerEmail } from "./constants";
-import { getJSON, setJSON, delKey, normEmail, getAccountByEmail, getEliteApplications } from "./services/dataService";
-import { getMeApi, setStoredToken } from "./services/authClient";
+import { COLORS, GRAD, PRESENCE_WINDOW_MS, isAccountBanned, BRANCHES, T } from "./constants";
+import { getEliteApplications } from "./services/dataService";
+import { setStoredToken } from "./services/authClient";
 import { Logo } from "./components/Atoms";
 import { AuthScreen } from "./components/AuthScreen";
 import { BranchesScreen } from "./components/BranchesScreen";
+import { DocumentsScreen } from "./components/DocumentsScreen";
 import { BranchDiscordScreen } from "./components/BranchDiscordScreen";
 import { AdminScreen } from "./components/AdminScreen";
 import { SettingsScreen } from "./components/SettingsScreen";
-import { DocumentsScreen } from "./components/DocumentsScreen";
 import { AnnouncementsScreen } from "./components/AnnouncementsScreen";
 import { FaqAndTrustPages } from "./components/FaqAndTrustPages";
 import { BranchOnboardingModal } from "./components/BranchOnboardingModal";
 import { NotificationCenterModal } from "./components/NotificationCenterModal";
-import { getBacDocumentById } from "./services/documentsService";
 import { getUserNotifications, isNotificationUnread } from "./services/notificationService";
 import { getStreamTheme } from "./services/themeEngine";
-import { saveUserProfileToLocalCache } from "./data/userProfilesCache";
 
 const GLOBAL_CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=Cairo:wght@400;600;700;800&display=swap');
@@ -69,8 +67,8 @@ const GLOBAL_CSS = `
 export type AppScreen =
   | "auth"
   | "branches"
-  | "discord"
   | "documents"
+  | "discord"
   | "announcements"
   | "contribute"
   | "admin"
@@ -95,27 +93,10 @@ export default function App() {
   const [hasResolvedContributionApp, setHasResolvedContributionApp] = useState(false);
 
   useEffect(() => {
-    try {
-      const searchParams = new URLSearchParams(window.location.search);
-      const docId = searchParams.get("pdf_doc") || searchParams.get("view_pdf");
-      const directPdfUrl = searchParams.get("pdf_url");
-
-      if (docId || directPdfUrl) {
-        // Clean URL to prevent browser sandbox redirection traps
-        window.history.replaceState({}, document.title, window.location.pathname);
-        setScreen("documents");
-      }
-    } catch (e) {
-      console.error(e);
-    }
-  }, []);
-
-  useEffect(() => {
     if (!user) {
       setHasResolvedContributionApp(false);
       return;
     }
-    saveUserProfileToLocalCache(user);
     let isMounted = true;
     getEliteApplications()
       .then((apps) => {
@@ -139,7 +120,7 @@ export default function App() {
 
   const effectiveUser = useMemo<Account | null>(() => {
     if (!user) return null;
-    const isOwner = user.role === "superadmin" || isOwnerEmail(user.email);
+    const isOwner = user.role === "superadmin";
     if (!isOwner) return user;
     if (impersonatedRole === "guest") return null;
     if (impersonatedRole) {
@@ -210,72 +191,11 @@ export default function App() {
 
   const setLang = useCallback((l: LangKey) => {
     setLangState(l);
-    setJSON("lang-pref", { lang: l }, false);
   }, []);
 
   useEffect(() => {
-    (async () => {
-      try {
-        const savedLang = await getJSON<{ lang?: LangKey }>("lang-pref", false);
-        if (savedLang?.lang && ["ar", "fr", "en"].includes(savedLang.lang)) {
-          setLangState(savedLang.lang);
-        }
-
-        // 1. First check real server-side JWT session
-        const serverUser = await getMeApi();
-        if (serverUser && !isAccountBanned(serverUser)) {
-          setUser(serverUser);
-          setSelectedBranchId(serverUser.branch || "math");
-          setScreen("branches");
-        } else {
-          const session = await getJSON<{ email?: string }>("session", false);
-          if (session && session.email) {
-            const account = await getAccountByEmail(session.email);
-            if (account && !isAccountBanned(account)) {
-              setUser(account);
-              setSelectedBranchId(account.branch || "math");
-              setScreen("branches");
-            } else {
-              await delKey("session", false);
-            }
-          }
-        }
-      } catch (err) {
-        console.error("Initialization error:", err);
-      } finally {
-        setInitializing(false);
-      }
-    })();
+    setInitializing(false);
   }, []);
-
-  useEffect(() => {
-    if (!user) return;
-    let active = true;
-
-    // Local Registry Heartbeat
-    async function beat() {
-      if (!user) return;
-      try {
-        const presence =
-          (await getJSON<Record<string, number>>("presence-registry", true)) || {};
-        const now = Date.now();
-        presence[user.email] = now;
-        Object.keys(presence).forEach((k) => {
-          if (now - presence[k] > PRESENCE_WINDOW_MS * 2) delete presence[k];
-        });
-        if (active) await setJSON("presence-registry", presence, true);
-      } catch {
-        // ignore
-      }
-    }
-    beat();
-    const iv = setInterval(beat, 45000);
-
-    return () => {
-      active = false;
-      clearInterval(iv);
-    };
-  }, [user]);
 
   useEffect(() => {
     try {
@@ -295,7 +215,6 @@ export default function App() {
   async function handleLogout() {
     try {
       setStoredToken(null);
-      await delKey("session", false);
     } catch {
       // ignore
     }
@@ -309,7 +228,6 @@ export default function App() {
     if (user && user.branch !== branchId) {
       const updated = { ...user, branch: branchId };
       setUser(updated);
-      await setJSON(`account:${user.email}`, updated, true);
     }
   }
 
@@ -337,7 +255,7 @@ export default function App() {
 
   const showBottomNav = true;
 
-  const isOwner = effectiveUser?.role === "superadmin" || isOwnerEmail(effectiveUser?.email);
+  const isOwner = effectiveUser?.role === "superadmin";
   const isTeacher = effectiveUser?.role === "teacher";
   const isOwnerOrTeacher = isOwner || isTeacher;
 
@@ -393,7 +311,7 @@ export default function App() {
               onClick={() => setImpersonatedRole(null)}
               className="px-3 py-1 bg-black/40 hover:bg-black/70 rounded-xl text-[11px] font-black border border-white/30 text-amber-300 hover:text-white cursor-pointer transition-all shadow"
             >
-              {lang === "ar" ? "العودة لوضع المالك (الإدارة) 👑" : "Quitter la simulation"}
+              {lang === "ar" ? "العودة لوضع المالك (SuperAdmin) 👑" : "Quitter la simulation"}
             </button>
           </div>
         </div>
@@ -737,8 +655,7 @@ export default function App() {
         lang={lang}
         isRTL={isRTL}
         onNavigateScreen={(scrKey) => {
-          if (scrKey === "documents") setScreen("documents");
-          else if (scrKey === "admin") setScreen("admin");
+          if (scrKey === "admin") setScreen("admin");
           else if (scrKey === "faq") setScreen("faq");
           else if (scrKey === "branches") setScreen("branches");
           setIsNotifModalOpen(false);

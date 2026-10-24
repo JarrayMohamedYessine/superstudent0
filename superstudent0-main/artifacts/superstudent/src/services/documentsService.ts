@@ -3,8 +3,11 @@ import { INITIAL_BAC_DOCUMENTS } from "../data/bacDocumentsDataset";
 import { getJSON, setJSON, delKey } from "./dataService";
 import { canUserPublishDocuments } from "../constants";
 import { createNotification } from "./notificationService";
-import { fetchWithSWR, cacheFileInBrowser } from "./clientCacheService";
-import { loadStoreCollection } from "./cloudStore";
+import { generateNativePdfBlob, openInGooglePdfViewer, base64ToPdfBlobUrl } from "../utils/pdfNativeHelper";
+
+// Memory-only document vault: nothing is written to localStorage / IndexedDB /
+// browser cache / any remote storage. All data lives in the in-memory store of
+// dataService for the lifetime of the page and disappears on refresh.
 
 const VAULT_KEY = "bac-documents-vault";
 const DELETED_DOCS_KEY = "bac-deleted-doc-ids";
@@ -22,24 +25,15 @@ export async function getDeletedDocIds(): Promise<string[]> {
 export async function getAllBacDocuments(): Promise<BacDocumentItem[]> {
   try {
     const deletedIds = new Set(await getDeletedDocIds());
-    
-    // 1. Fetch shared documents from the in-memory store
-    // Static store first (free, no Worker call); the old /api/documents call stays as fallback.
-    const storeDocs = await loadStoreCollection<BacDocumentItem>("archive-bank");
-    const remoteSharedDocs =
-      storeDocs !== null ? storeDocs : await fetchWithSWR<BacDocumentItem[]>("/api/documents", []);
-    
-    // 2. Fetch local custom documents (in-memory store)
+
+    // In-memory custom documents + initial dataset, deduplicating by ID and excluding deleted
     const customDocs = (await getJSON<BacDocumentItem[]>(VAULT_KEY, true)) || [];
-    
-    // 3. Merge: remote shared + local custom + initial dataset, deduplicating by ID and excluding deleted
-    const allCustom = [...(remoteSharedDocs || []), ...customDocs];
-    const customIds = new Set(allCustom.map((d: BacDocumentItem) => d.id));
+    const customIds = new Set(customDocs.map((d: BacDocumentItem) => d.id));
     const merged = [
-      ...allCustom.filter((d: BacDocumentItem) => !deletedIds.has(d.id)),
+      ...customDocs.filter((d: BacDocumentItem) => !deletedIds.has(d.id)),
       ...INITIAL_BAC_DOCUMENTS.filter((d: BacDocumentItem) => !customIds.has(d.id) && !deletedIds.has(d.id)),
     ];
-    
+
     const enriched = merged.map((doc) => ensureRealPdfDataUrls(doc));
     return enriched.sort((a, b) => b.createdAt - a.createdAt);
   } catch (err) {
@@ -73,7 +67,7 @@ export async function publishBacDocument(
   if (!canUserPublishDocuments(user)) {
     return {
       success: false,
-      error: "عذرًا، النشر في بنك الوثائق متاح فقط للمشرفين والإدارة والتلاميذ المتميزين.",
+      error: "عذرًا، النشر في بنك الوثائق متاح فقط للإدارة والتلاميذ المتميزين.",
     };
   }
 
@@ -94,37 +88,7 @@ export async function publishBacDocument(
     customDocs.unshift(newDoc);
     await setJSON(VAULT_KEY, customDocs, true);
 
-    // 1. Broadcast removed: documents stay on this device only (memory).
-
-    // 2. Cache PDF in W3C Cache Storage API for instant offline zero-latency access
-    if (newDoc.pdfDataUrl) {
-      cacheFileInBrowser(newDoc.pdfUrl || newDoc.id, newDoc.pdfDataUrl).catch(() => {});
-    }
-    if (newDoc.corrigePdfDataUrl) {
-      cacheFileInBrowser(newDoc.corrigePdfUrl || `${newDoc.id}-corrige`, newDoc.corrigePdfDataUrl).catch(() => {});
-    }
-
-    // Track PDF in applicant dev storage file if contributor is an applicant
-    try {
-      const devKey = `dev:applicant:${user.username.toLowerCase()}`;
-      const devProfile = await getJSON<any>(devKey, true);
-      if (devProfile) {
-        const uploadedPdfs = devProfile.uploadedPdfs || [];
-        uploadedPdfs.unshift({
-          id: newDoc.id,
-          title: newDoc.title,
-          url: newDoc.pdfUrl,
-          dataUrl: newDoc.pdfDataUrl,
-          uploadedAt: newDoc.createdAt,
-        });
-        devProfile.uploadedPdfs = uploadedPdfs;
-        await setJSON(devKey, devProfile, true);
-      }
-    } catch {
-      // ignore
-    }
-
-    // Trigger notification to superadmin, mods & elite students
+    // Trigger notification to the administration, mods & elite students
     try {
       await createNotification({
         title: {
@@ -186,18 +150,16 @@ export async function deleteBacDocument(
       await setJSON(DELETED_DOCS_KEY, deletedIds, true);
     }
 
-    // 2. Filter from custom vault
+    // 2. Filter from in-memory vault
     const filtered = customDocs.filter((d: BacDocumentItem) => d.id !== docId);
     await setJSON(VAULT_KEY, filtered, true);
 
-    // 3. Cascading cleanup: bookmarks and associated binary/metadata keys
+    // 3. Cascading cleanup: bookmarks and associated metadata keys
     try {
       const bookmarks = (await getJSON<string[]>(BOOKMARKS_KEY, false)) || [];
       if (bookmarks.includes(docId)) {
         await setJSON(BOOKMARKS_KEY, bookmarks.filter((id) => id !== docId), false);
       }
-      await delKey(`pdf:${docId}`, true);
-      await delKey(`pdf:${docId}`, false);
       await delKey(`doc_meta:${docId}`, true);
       await delKey(`doc_meta:${docId}`, false);
     } catch {
@@ -230,7 +192,7 @@ export async function purgeDocumentsByUsername(username: string): Promise<number
     );
     await setJSON(VAULT_KEY, remaining, true);
 
-    // Clean bookmarks and media keys for purged documents
+    // Clean bookmarks and metadata keys for purged documents
     try {
       const bookmarks = (await getJSON<string[]>(BOOKMARKS_KEY, false)) || [];
       const purgedIdSet = new Set(toDelete.map((d) => d.id));
@@ -239,8 +201,6 @@ export async function purgeDocumentsByUsername(username: string): Promise<number
         await setJSON(BOOKMARKS_KEY, updatedBookmarks, false);
       }
       for (const d of toDelete) {
-        await delKey(`pdf:${d.id}`, true);
-        await delKey(`pdf:${d.id}`, false);
         await delKey(`doc_meta:${d.id}`, true);
         await delKey(`doc_meta:${d.id}`, false);
       }
@@ -386,8 +346,6 @@ export function downloadBothDocumentFiles(doc: BacDocumentItem): void {
   }
 }
 
-import { generateNativePdfBlob, openInGooglePdfViewer, base64ToPdfBlobUrl } from "../utils/pdfNativeHelper";
-
 export async function getBacDocumentById(id: string): Promise<BacDocumentItem | null> {
   try {
     const docs = await getAllBacDocuments();
@@ -458,4 +416,3 @@ export function resolveDirectViewUrl(
   }
   return activeUrl;
 }
-

@@ -5,16 +5,9 @@ export const ENV =
     (import.meta as unknown as { env?: Record<string, string> }).env) ||
   {};
 
-// بريد المالك — متغيّر واحد فقط: ضع قيمته هنا (بدون التحقق عبر أول حساب مُنشأ)
-export const OWNER_EMAIL = "x";
-
-export function isOwnerEmail(email?: string | null): boolean {
-  return !!email && email.trim().toLowerCase() === OWNER_EMAIL.trim().toLowerCase();
-}
-
 export const MAX_MESSAGES = 60;
 export const MESSAGE_RETENTION_MS = 5 * 24 * 60 * 60 * 1000; // 5 days retention for room messages
-export const MEDIA_VAULT_RETENTION_MS = 14 * 24 * 60 * 60 * 1000; // 14 days (2 weeks) retention for Administration media archive
+export const MEDIA_VAULT_RETENTION_MS = 14 * 24 * 60 * 60 * 1000; // 14 days (2 weeks) retention for the administration media archive
 export const IMG_MAX_DIM = 600;
 export const IMG_QUALITY = 0.6;
 export const AVATAR_DIM = 160;
@@ -476,7 +469,7 @@ export const T = {
     ban5: "5 min", ban30: "30 min", ban1h: "1 h", ban6h: "6 h", ban24h: "24 h", banForever: "Définitif",
     deleteMsgShort: "Supprimer", modActions: "Outils de modération", refresh: "Actualiser",
     modsOnlyRoomTitle: "Salon privé des Modérateurs",
-    modsOnlyRoomSub: "Espace réservé à l'équipe de modération et au Administration",
+    modsOnlyRoomSub: "Espace réservé à l'équipe de modération et à l'Administration",
     adminModChannelTitle: "Canal direct Administration ↔ Modérateurs",
     adminModChannelSub: "Communication directe et prioritaire avec la direction",
     aiTitle: "Tuteur IA Académique SuperStudent AI",
@@ -521,7 +514,7 @@ export const T = {
     surveySubmit: "Envoyer l'évaluation",
     surveyThanks: "Merci pour vos retours précieux !",
     mfaTitle: "Authentification à deux facteurs (2FA)",
-    mfaDesc: "Protection renforcée pour les comptes modérateurs et l'Administration.",
+    mfaDesc: "Protection renforcée pour les comptes modérateurs et super admin.",
     mfaEnable: "Activer la 2FA",
     mfaDisable: "Désactiver la 2FA",
   },
@@ -671,29 +664,9 @@ export const MUTE_OPTS = [
   { key: "muteForever", ms: Number.MAX_SAFE_INTEGER },
 ];
 
-// One-way irreversible SHA-256 cryptographic hashes for Root SuperAdmins (Hides plain emails on GitHub)
-export const ROOT_OWNER_HASHES = [
-  "c2ec73ebec670123aaa362ab28963c46243185db42fdc57cc50670fe4b086587",
-];
-
-export async function isRootOwnerEmail(email?: string | null): Promise<boolean> {
-  if (!email) return false;
-  const norm = email.trim().toLowerCase();
-  if (isOwnerEmail(norm)) return true;
-
-  try {
-    const encoder = new TextEncoder();
-    const data = encoder.encode(norm);
-    const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    const hex = hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
-    if (ROOT_OWNER_HASHES.includes(hex)) return true;
-  } catch {
-    // fallback
-  }
-
-  return false;
-}
+// Super-admin identification is handled by the Cloudflare Worker verifier
+// (src/services/adminVerifier.ts + workers/ggggyyr4364.js) — no local email
+// lists or hashes are kept in the client.
 
 export const BAN_OPTS = [
   { key: "ban5", ms: 5 * 60 * 1000 },
